@@ -4,18 +4,18 @@ version = "1.2.0"
 description = "Multi-source account scanner: Reddit toxicity + Sherlock OSINT (async)"
 requires-python = ">=3.11"
 dependencies = [
-  "httpx[http2]",
-  "orjson",
-  "asyncpraw",
-  "sherlock-project",
-  "uvloop"
+  "httpx[http2]>=0.28.0,<0.29.0",
+  "orjson>=3.11.0,<4.0.0",
+  "asyncpraw>=7.8.0,<8.0.0",
+  "uvloop>=0.22.0,<0.23.0"
 ]
 
 [project.optional-dependencies]
-dev = ["ruff", "mypy", "pytest", "black"]
-
-[tool.black]
-line-length = 80
+dev = [
+  "ruff>=0.8.0,<0.9.0",
+  "mypy>=1.14.0,<2.0.0",
+  "pytest>=8.3.0,<9.0.0"
+]
 
 [tool.mypy]
 python_version = "3.11"
@@ -30,3 +30,9 @@ exclude = [".git", ".cache", ".var", "node_modules"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "TCH"]
 ignore = []
+
+[tool.ruff.format]
+# Use ruff for formatting (replaces black)
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
