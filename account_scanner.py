@@ -3,11 +3,13 @@
 import argparse
 import asyncio
 import csv
+import io
 import shutil
 import sys
 import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+import aiofiles
 import httpx
 import orjson
 import uvloop
@@ -20,14 +22,15 @@ ATTRIBUTES = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
 
 def get_limiter(rate_per_min: float):
     delay = 60.0 / rate_per_min
-    last_call = [0.0]
+    last_call = 0.0
 
     async def wait():
+        nonlocal last_call
         now = time.monotonic()
-        elapsed = now - last_call[0]
+        elapsed = now - last_call
         if elapsed < delay:
             await asyncio.sleep(delay - elapsed)
-        last_call[0] = time.monotonic()
+        last_call = time.monotonic()
 
     return wait
 
@@ -50,12 +53,14 @@ async def run_sherlock(
     ]
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
         )
-        await proc.communicate()
+        await proc.wait()
         if not tmp_output.exists():
             return []
-        data = orjson.loads(tmp_output.read_bytes())
+        async with aiofiles.open(tmp_output, "rb") as f:
+            content = await f.read()
+        data = orjson.loads(content)
         tmp_output.unlink(missing_ok=True)
         return [
             {
@@ -88,7 +93,6 @@ async def check_toxicity(
             PERSPECTIVE_URL,
             params={"key": key},
             content=orjson.dumps(payload),
-            headers={"Content-Type": "application/json"},
             timeout=DEFAULT_TIMEOUT,
         )
         if resp.status_code == 200:
@@ -98,7 +102,7 @@ async def check_toxicity(
                 for k, v in data.get("attributeScores", {}).items()
             }
     except Exception:
-        return {}
+        pass
     return {}
 
 async def fetch_reddit_items(
@@ -146,7 +150,8 @@ async def scan_reddit(args: argparse.Namespace) -> Optional[List[Dict[str, objec
         return None
     print(f"🤖 Reddit: Analyzing {len(items)} items...")
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-    async with httpx.AsyncClient(http2=True, limits=limits) as client:
+    headers = {"Content-Type": "application/json"}
+    async with httpx.AsyncClient(http2=True, limits=limits, headers=headers) as client:
         results = await asyncio.gather(
             *[
                 check_toxicity(client, text, args.api_key, limiter)
@@ -168,12 +173,17 @@ async def scan_reddit(args: argparse.Namespace) -> Optional[List[Dict[str, objec
                 }
             )
     if flagged:
-        with open(args.output_reddit, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(
-                f, fieldnames=["timestamp", "type", "subreddit", "content"] + ATTRIBUTES
-            )
-            writer.writeheader()
-            writer.writerows(flagged)
+        # Write CSV to string buffer first, then write async
+        output_buffer = io.StringIO()
+        writer = csv.DictWriter(
+            output_buffer, fieldnames=["timestamp", "type", "subreddit", "content"] + ATTRIBUTES
+        )
+        writer.writeheader()
+        writer.writerows(flagged)
+        csv_content = output_buffer.getvalue()
+
+        async with aiofiles.open(args.output_reddit, "w", encoding="utf-8") as f:
+            await f.write(csv_content)
         print(f"🤖 Reddit: Saved {len(flagged)} flagged items → {args.output_reddit}")
     else:
         print("🤖 Reddit: No toxic content found.")
@@ -214,8 +224,9 @@ async def main_async() -> None:
     results = await asyncio.gather(*tasks) if tasks else []
     sherlock_data = next((r for r in results if isinstance(r, list)), None)
     if sherlock_data:
-        with open(args.output_sherlock, "wb") as f:
-            f.write(orjson.dumps(sherlock_data, option=orjson.OPT_INDENT_2))
+        json_content = orjson.dumps(sherlock_data, option=orjson.OPT_INDENT_2)
+        async with aiofiles.open(args.output_sherlock, "wb") as f:
+            await f.write(json_content)
         print(
             f"🔎 Sherlock: Found {len(sherlock_data)} accounts → {args.output_sherlock}"
         )
