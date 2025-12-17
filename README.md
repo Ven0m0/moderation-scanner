@@ -12,20 +12,32 @@ Optimized for performance using `orjson` (fast JSON) and `uvloop` (fast async lo
 
 ## Installation
 
-### Arch Linux / CachyOS
+### Python Dependencies
 
 ```bash
-# Core dependencies
-sudo pacman -S python-praw python-httpx python-orjson python-uvloop
+# Using pip
+pip install .
 
-# Sherlock
-paru -S sherlock-git
-
-# Using uv (recommended)
-uv pip install praw httpx sherlock-project orjson uvloop
-# Or pip
-pip3 install praw httpx sherlock-project orjson uvloop
+# For development
+pip install ".[dev]"
 ```
+
+### Sherlock (Optional)
+
+Sherlock is an optional OSINT tool for username discovery across platforms. Install it separately:
+
+```bash
+# Using pipx (recommended - isolated installation)
+pipx install sherlock-project
+
+# Using pip (user installation)
+pip install --user sherlock-project
+
+# Arch Linux / CachyOS
+paru -S sherlock-git
+```
+
+**Note:** Sherlock is not a Python library dependency - it's invoked as a CLI tool. The scanner will automatically detect if Sherlock is available.
 
 ### Usage
 
