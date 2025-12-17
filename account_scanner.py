@@ -55,8 +55,19 @@ async def run_sherlock(
         proc = await asyncio.create_subprocess_exec(
             *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
         )
-        await proc.wait()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=timeout + 5)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            if verbose:
+                print(f"Sherlock timed out after {timeout}s", file=sys.stderr)
+            return []
+        if proc.returncode != 0 and verbose:
+            print(f"Sherlock exited with {proc.returncode}", file=sys.stderr)
         if not tmp_output.exists():
+            if verbose:
+                print("Sherlock produced no output file.", file=sys.stderr)
             return []
         async with aiofiles.open(tmp_output, "rb") as f:
             content = await f.read()
