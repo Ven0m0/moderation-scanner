@@ -110,19 +110,17 @@ async def fetch_reddit_items(
 ) -> Tuple[Optional[List[Tuple[str, str, str, float]]], Optional[Iterable]]:
     limiter = get_limiter(args.rate_per_min)
     print(f"🤖 Reddit: Fetching content for u/{args.username}...")
+    user_agent = args.user_agent or f"account-scanner/1.2.0 (by u/{args.username})"
+    reddit: Optional[Reddit] = None
     try:
         reddit = Reddit(
             client_id=args.client_id,
             client_secret=args.client_secret,
-            user_agent=args.user_agent,
-            requestor_kwargs={"request_timeout": DEFAULT_TIMEOUT},
+            user_agent=user_agent,
+            requestor_kwargs={"timeout": DEFAULT_TIMEOUT},
         )
-    except Exception as e:
-        print(f"Reddit init error: {e}", file=sys.stderr)
-        return None, None
-    user = reddit.redditor(args.username)
-    items: List[Tuple[str, str, str, float]] = []
-    try:
+        user = await reddit.redditor(args.username)
+        items: List[Tuple[str, str, str, float]] = []
         async for c in user.comments.new(limit=args.comments):
             items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
         async for s in user.submissions.new(limit=args.posts):
@@ -136,9 +134,13 @@ async def fetch_reddit_items(
             )
     except AsyncPrawcoreException as e:
         print(f"Reddit API Error: {e}", file=sys.stderr)
-        await reddit.close()
-        return None, None
-    await reddit.close()
+        items = []
+    except Exception as e:
+        print(f"Reddit init/fetch error: {e}", file=sys.stderr)
+        items = []
+    finally:
+        if reddit is not None:
+            await reddit.close()
     if not items:
         print("🤖 Reddit: No items to analyze.")
         return None, None
@@ -173,7 +175,6 @@ async def scan_reddit(args: argparse.Namespace) -> Optional[List[Dict[str, objec
                 }
             )
     if flagged:
-        # Write CSV to string buffer first, then write async
         output_buffer = io.StringIO()
         writer = csv.DictWriter(
             output_buffer, fieldnames=["timestamp", "type", "subreddit", "content"] + ATTRIBUTES
@@ -217,7 +218,7 @@ async def main_async() -> None:
         else:
             print("Sherlock not installed, skipping.")
     if args.mode in ["reddit", "both"]:
-        if all([args.api_key, args.client_id, args.client_secret, args.user_agent]):
+        if all([args.api_key, args.client_id, args.client_secret]):
             tasks.append(scan_reddit(args))
         elif args.mode == "reddit":
             sys.exit("Error: Reddit mode requires API keys.")
