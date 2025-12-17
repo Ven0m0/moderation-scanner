@@ -60,20 +60,21 @@ async def run_sherlock(
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            if verbose:
-                print(f"Sherlock timed out after {timeout}s", file=sys.stderr)
+            print(f"🔎 Sherlock: timed out after {timeout}s; no results.")
             return []
-        if proc.returncode != 0 and verbose:
-            print(f"Sherlock exited with {proc.returncode}", file=sys.stderr)
-        if not tmp_output.exists():
+        if proc.returncode != 0:
             if verbose:
-                print("Sherlock produced no output file.", file=sys.stderr)
+                print(f"Sherlock exited with {proc.returncode}", file=sys.stderr)
+            else:
+                print("🔎 Sherlock: command exited non-zero; no results.")
+        if not tmp_output.exists():
+            print("🔎 Sherlock: no output produced.")
             return []
         async with aiofiles.open(tmp_output, "rb") as f:
             content = await f.read()
         data = orjson.loads(content)
         tmp_output.unlink(missing_ok=True)
-        return [
+        results = [
             {
                 "platform": k,
                 "url": d.get("url_user"),
@@ -83,9 +84,16 @@ async def run_sherlock(
             for k, d in data.items()
             if d.get("status") == "Claimed"
         ]
+        if not results:
+            print("🔎 Sherlock: no claimed accounts found.")
+        else:
+            print(f"🔎 Sherlock: collected {len(results)} claimed accounts.")
+        return results
     except Exception as e:  # pragma: no cover - external binary
         if verbose:
             print(f"Sherlock error: {e}", file=sys.stderr)
+        else:
+            print("🔎 Sherlock: failed; rerun with --verbose for details.")
         return []
 
 async def check_toxicity(
