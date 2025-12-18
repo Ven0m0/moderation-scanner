@@ -16,15 +16,32 @@ Multi-source account scanner combining Reddit toxicity analysis via Perspective 
 
 ## Installation
 
+See [INSTALL.md](INSTALL.md) for comprehensive installation guide.
+
+**Quick Install:**
+
 ```bash
-# Clone or download
+# Pip (development)
+pip install -e .
+
+# Arch Linux (system-wide)
+make pkg-install
+
+# From AUR
+yay -S account-scanner
+```
+
+**Dependencies:**
+- Python 3.11+
+- [Sherlock](https://github.com/sherlock-project/sherlock) (optional, for OSINT)
+
+**Full setup:**
+```bash
+# Clone repository
 git clone <repo-url>
 cd account-scanner
 
-# Install dependencies
-pip install -e .
-
-# Dev dependencies
+# Install with dev dependencies
 pip install -e ".[dev]"
 
 # Install Sherlock (optional)
