@@ -6,6 +6,7 @@ import csv
 import io
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -41,19 +42,23 @@ async def run_sherlock(
     username: str, timeout: int, verbose: bool
 ) -> List[Dict[str, object]]:
     print(f"🔎 Sherlock: Scanning '{username}'...")
-    tmp_output = Path(f"/tmp/sherlock_{username}_{int(time.time())}.json")
+    out_dir = Path(tempfile.mkdtemp(prefix=f"sherlock_{username}_"))
+    output_file = out_dir / f"{username}.json"
     cmd = [
         "sherlock",
         username,
         "--json",
-        str(tmp_output),
         "--timeout",
         str(timeout),
         "--print-found",
+        "--output",
+        str(out_dir),
     ]
+    stdout_opt = asyncio.subprocess.PIPE if verbose else asyncio.subprocess.DEVNULL
+    stderr_opt = asyncio.subprocess.PIPE if verbose else asyncio.subprocess.DEVNULL
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+            *cmd, stdout=stdout_opt, stderr=stderr_opt
         )
         try:
             await asyncio.wait_for(proc.wait(), timeout=timeout + 5)
@@ -63,17 +68,17 @@ async def run_sherlock(
             print(f"🔎 Sherlock: timed out after {timeout}s; no results.")
             return []
         if proc.returncode != 0:
-            if verbose:
-                print(f"Sherlock exited with {proc.returncode}", file=sys.stderr)
+            if verbose and proc.stderr:
+                err_out = (await proc.stderr.read()).decode(errors="ignore")
+                print(f"Sherlock stderr:\n{err_out}", file=sys.stderr)
             else:
                 print("🔎 Sherlock: command exited non-zero; no results.")
-        if not tmp_output.exists():
+        if not output_file.exists():
             print("🔎 Sherlock: no output produced.")
             return []
-        async with aiofiles.open(tmp_output, "rb") as f:
+        async with aiofiles.open(output_file, "rb") as f:
             content = await f.read()
         data = orjson.loads(content)
-        tmp_output.unlink(missing_ok=True)
         results = [
             {
                 "platform": k,
@@ -95,6 +100,8 @@ async def run_sherlock(
         else:
             print("🔎 Sherlock: failed; rerun with --verbose for details.")
         return []
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
 
 async def check_toxicity(
     client: httpx.AsyncClient, text: str, key: str, limiter
