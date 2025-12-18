@@ -1,6 +1,6 @@
 [project]
 name = "account-scanner"
-version = "1.2.0"
+version = "1.2.3"
 description = "Multi-source account scanner: Reddit toxicity + Sherlock OSINT"
 readme = "README.md"
 requires-python = ">=3.11"
