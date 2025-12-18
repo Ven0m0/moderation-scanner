@@ -1,39 +1,94 @@
 [project]
 name = "account-scanner"
 version = "1.2.0"
-description = "Multi-source account scanner: Reddit toxicity + Sherlock OSINT (async)"
+description = "Multi-source account scanner: Reddit toxicity + Sherlock OSINT"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Ven0m0"}]
+keywords = ["osint", "reddit", "toxicity", "sherlock", "security"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
+
 dependencies = [
   "httpx[http2]>=0.28.0,<0.29.0",
   "orjson>=3.11.0,<4.0.0",
   "asyncpraw>=7.8.0,<8.0.0",
-  "uvloop>=0.22.0,<0.23.0",
-  "aiofiles>=24.1.0,<25.0.0"
+  "uvloop>=0.22.0,<0.23.0; platform_system != 'Windows'",
+  "aiofiles>=24.1.0,<25.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "ruff>=0.8.0,<0.9.0",
   "mypy>=1.14.0,<2.0.0",
-  "pytest>=8.3.0,<9.0.0"
+  "pytest>=8.3.0,<9.0.0",
+  "pytest-asyncio>=0.24.0,<0.25.0",
 ]
+
+[project.scripts]
+account-scanner = "account_scanner:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
+warn_unreachable = true
+warn_unused_ignores = true
 ignore_missing_imports = true
 
 [tool.ruff]
-line-length = 80
+line-length = 88
 target-version = "py311"
-exclude = [".git", ".cache", ".var", "node_modules"]
+exclude = [
+  ".git",
+  ".cache",
+  ".var",
+  ".venv",
+  "venv",
+  "node_modules",
+  "__pycache__",
+  "*.pyc",
+]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "TCH"]
-ignore = []
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "N",     # pep8-naming
+  "UP",    # pyupgrade
+  "B",     # flake8-bugbear
+  "C4",    # flake8-comprehensions
+  "SIM",   # flake8-simplify
+  "ASYNC", # flake8-async
+  "TCH",   # flake8-type-checking
+  "RUF",   # ruff-specific
+]
+ignore = [
+  "E501",   # line too long (formatter handles)
+  "SIM105", # contextlib.suppress (prefer explicit)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["account_scanner"]
 
 [tool.ruff.format]
-# Use ruff for formatting (replaces black)
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
