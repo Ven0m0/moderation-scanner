@@ -78,56 +78,62 @@ async def run_sherlock(
 ) -> List[Dict[str, object]]:
     print(f"🔎 Sherlock: Scanning '{username}'...")
     tmp_dir = tempfile.mkdtemp(prefix=f"sherlock_{username}_")
-    output_file = Path(tmp_dir) / f"{username}.json"
+    json_filename = f"{username}.json"
+    output_file = Path(tmp_dir) / json_filename
     cmd = [
         "sherlock",
         username,
-        "--json",
-        str(output_file),
-        "--timeout",
-        str(timeout),
+        "--json", json_filename,  # Relative to cwd
+        "--timeout", str(timeout),
         "--print-found",
+        "--no-color",  # Prevent ANSI escapes corrupting stdout
     ]
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=tmp_dir,  # Run from tmp_dir so JSON lands there
         )
         try:
-            await asyncio.wait_for(proc.wait(), timeout=timeout + 5)
+            await asyncio.wait_for(proc.wait(), timeout=timeout + 30)  # Buffer for site checks
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            print(f"🔎 Sherlock: timed out after {timeout}s; no results.")
-            return []
+            print(f"🔎 Sherlock: timed out after {timeout}s; partial results may exist.")
         stdout = (await proc.stdout.read()) if proc.stdout else b""
         stderr = (await proc.stderr.read()) if proc.stderr else b""
-        if proc.returncode != 0 and verbose and stderr:
-            print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
+        if verbose:
+            if stdout:
+                print(f"Sherlock stdout:\n{stdout.decode(errors='ignore')}", file=sys.stderr)
+            if stderr:
+                print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
         results: List[Dict[str, object]] = []
         if output_file.exists():
             async with aiofiles.open(output_file, "rb") as f:
                 content = await f.read()
-            data = orjson.loads(content)
-            results = [
-                {
-                    "platform": k,
-                    "url": d.get("url_user"),
-                    "status": d.get("status"),
-                    "response_time": d.get("response_time_s"),
-                }
-                for k, d in data.items()
-                if _is_claimed(str(d.get("status", "")))
-            ]
+            if content.strip():
+                data = orjson.loads(content)
+                results = [
+                    {
+                        "platform": k,
+                        "url": d.get("url_user"),
+                        "status": d.get("status"),
+                        "response_time": d.get("response_time_s"),
+                    }
+                    for k, d in data.items()
+                    if _is_claimed(str(d.get("status", "")))
+                ]
         if not results and stdout:
             results = _parse_sherlock_stdout(stdout.decode(errors="ignore"))
-        if not results and stderr and not verbose:
-            print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
         if not results:
+            if not verbose and stderr:
+                print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
             print("🔎 Sherlock: no claimed accounts found.")
         else:
             print(f"🔎 Sherlock: collected {len(results)} claimed accounts.")
         return results
-    except Exception as e:  # pragma: no cover - external binary
+    except Exception as e:
         if verbose:
             print(f"Sherlock error: {e}", file=sys.stderr)
         else:
