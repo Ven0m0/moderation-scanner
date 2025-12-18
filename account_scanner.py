@@ -11,25 +11,21 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
-
 import aiofiles
 import httpx
 import orjson
 import uvloop
 from asyncpraw import Reddit
 from asyncprawcore import AsyncPrawcoreException
-
 # Constants
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
 ATTRIBUTES: Final = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
-
 
 @dataclass
 class ScanConfig:
@@ -51,20 +47,17 @@ class ScanConfig:
   output_reddit: Path = field(default_factory=lambda: Path("reddit_flagged.csv"))
   output_sherlock: Path = field(default_factory=lambda: Path("sherlock_results.json"))
   verbose: bool = False
-
   def __post_init__(self) -> None:
     self.output_reddit = Path(self.output_reddit)
     self.output_sherlock = Path(self.output_sherlock)
     if not self.user_agent:
       self.user_agent = f"account-scanner/1.2.3 (by u/{self.username})"
 
-
 class RateLimiter:
   """Token bucket rate limiter."""
   def __init__(self, rate_per_min: float) -> None:
     self.delay = 60.0 / rate_per_min
     self.last_call = 0.0
-
   async def wait(self) -> None:
     now = time.monotonic()
     elapsed = now - self.last_call
@@ -72,14 +65,11 @@ class RateLimiter:
       await asyncio.sleep(self.delay - elapsed)
     self.last_call = time.monotonic()
 
-
 class SherlockScanner:
   """Handles Sherlock OSINT scanning."""
-
   @staticmethod
   def available() -> bool:
     return shutil.which("sherlock") is not None
-
   @staticmethod
   def _parse_stdout(text: str) -> list[dict[str, Any]]:
     """Parse Sherlock stdout as fallback."""
@@ -110,14 +100,12 @@ class SherlockScanner:
         "response_time": None,
       })
     return results
-
   @staticmethod
   def _is_claimed(status: str) -> bool:
     """Check if account status indicates claimed."""
     s = status.lower()
     invalid = ("not", "available", "invalid", "unchecked", "unknown")
     return not any(x in s or s.startswith(x) for x in invalid)
-
   async def scan(self, username: str, timeout: int, verbose: bool) -> list[dict[str, Any]]:
     """Run Sherlock scan for username."""
     log.info("🔎 Sherlock: Scanning '%s'...", username)
@@ -142,27 +130,22 @@ class SherlockScanner:
         await proc.wait()
         log.warning("🔎 Sherlock: timed out after %ds", timeout)
         stdout, stderr = b"", b""
-
       if verbose:
         if stdout:
           log.debug("Sherlock stdout:\n%s", stdout.decode(errors="ignore"))
         if stderr:
           log.debug("Sherlock stderr:\n%s", stderr.decode(errors="ignore"))
-
       # Parse stdout
       results: list[dict[str, Any]] = []
       if stdout:
         results = self._parse_stdout(stdout.decode(errors="ignore"))
-
       if results:
         log.info("🔎 Sherlock: collected %d claimed accounts", len(results))
       else:
         if stderr and not verbose:
           log.error(stderr.decode(errors="ignore"))
         log.info("🔎 Sherlock: no claimed accounts found")
-
       return results
-
     except Exception as e:
       msg = f"Sherlock error: {e}"
       (log.debug if verbose else log.error)(msg)
@@ -170,14 +153,11 @@ class SherlockScanner:
         log.info("🔎 Sherlock: failed; rerun with --verbose for details")
       return []
 
-
 class RedditScanner:
   """Handles Reddit toxicity analysis."""
-
   def __init__(self, config: ScanConfig) -> None:
     self.config = config
     self.limiter = RateLimiter(config.rate_per_min)
-
   async def _check_toxicity(
     self,
     client: httpx.AsyncClient,
@@ -187,14 +167,12 @@ class RedditScanner:
     """Analyze text toxicity via Perspective API."""
     if not text.strip():
       return {}
-
     await self.limiter.wait()
     payload = {
       "comment": {"text": text},
       "languages": ["en"],
       "requestedAttributes": {a: {} for a in ATTRIBUTES},
     }
-
     try:
       resp = await client.post(
         PERSPECTIVE_URL,
@@ -211,12 +189,10 @@ class RedditScanner:
     except Exception:
       pass
     return {}
-
   async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
     """Fetch Reddit comments and posts."""
     cfg = self.config
     log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
-
     reddit: Reddit | None = None
     try:
       reddit = Reddit(
@@ -227,10 +203,8 @@ class RedditScanner:
       )
       user = await reddit.redditor(cfg.username)
       items: list[tuple[str, str, str, float]] = []
-
       async for c in user.comments.new(limit=cfg.comments):
         items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
-
       async for s in user.submissions.new(limit=cfg.posts):
         items.append((
           "post",
@@ -238,9 +212,7 @@ class RedditScanner:
           f"{s.title}\n{s.selftext}",
           s.created_utc,
         ))
-
       return items if items else None
-
     except AsyncPrawcoreException as e:
       log.error("Reddit API Error: %s", e)
     except Exception as e:
@@ -248,19 +220,15 @@ class RedditScanner:
     finally:
       if reddit:
         await reddit.close()
-
     return None
-
   async def scan(self) -> list[dict[str, Any]] | None:
     """Scan Reddit content for toxicity."""
     items = await self._fetch_items()
     if not items:
       log.info("🤖 Reddit: No items to analyze")
       return None
-
     log.info("🤖 Reddit: Analyzing %d items...", len(items))
     headers = {"Content-Type": "application/json"}
-
     async with httpx.AsyncClient(
       http2=True,
       limits=HTTP2_LIMITS,
@@ -270,7 +238,6 @@ class RedditScanner:
         self._check_toxicity(client, text, self.config.api_key or "")
         for _, _, text, _ in items
       ])
-
     # Filter flagged content
     flagged: list[dict[str, Any]] = []
     for (kind, sub, text, ts), scores in zip(items, results):
@@ -282,7 +249,6 @@ class RedditScanner:
           "content": text[:500],
           **scores,
         })
-
     if flagged:
       # Write CSV
       buffer = io.StringIO()
@@ -292,10 +258,8 @@ class RedditScanner:
       )
       writer.writeheader()
       writer.writerows(flagged)
-
       async with aiofiles.open(self.config.output_reddit, "w", encoding="utf-8") as f:
         await f.write(buffer.getvalue())
-
       log.info(
         "🤖 Reddit: Saved %d flagged items → %s",
         len(flagged),
@@ -303,9 +267,7 @@ class RedditScanner:
       )
     else:
       log.info("🤖 Reddit: No toxic content found")
-
     return flagged
-
 
 async def main_async() -> None:
   """Main async entry point."""
@@ -338,13 +300,10 @@ async def main_async() -> None:
   parser.add_argument("--output-reddit", default="reddit_flagged.csv", help="Reddit output file")
   parser.add_argument("--output-sherlock", default="sherlock_results.json", help="Sherlock output file")
   parser.add_argument("--verbose", action="store_true", help="Verbose output")
-
   args = parser.parse_args()
   if args.verbose:
     logging.getLogger().setLevel(logging.DEBUG)
-
   config = ScanConfig(**vars(args))
-
   # Validate requirements
   tasks: list[Any] = []
   if config.mode in ("sherlock", "both"):
@@ -353,20 +312,16 @@ async def main_async() -> None:
       tasks.append(scanner.scan(config.username, config.sherlock_timeout, config.verbose))
     else:
       log.warning("Sherlock not installed, skipping")
-
   if config.mode in ("reddit", "both"):
     if all((config.api_key, config.client_id, config.client_secret)):
       reddit = RedditScanner(config)
       tasks.append(reddit.scan())
     elif config.mode == "reddit":
       sys.exit("Error: Reddit mode requires --perspective-api-key, --client-id, --client-secret")
-
   if not tasks:
     sys.exit("Error: No valid scan modes configured")
-
   # Execute scans
   results = await asyncio.gather(*tasks, return_exceptions=True)
-
   # Save Sherlock results
   for result in results:
     if isinstance(result, list) and result and "platform" in result[0]:
@@ -378,8 +333,6 @@ async def main_async() -> None:
         len(result),
         config.output_sherlock,
       )
-
-
 def main() -> None:
   """Main entry point."""
   uvloop.install()
@@ -388,7 +341,5 @@ def main() -> None:
   except KeyboardInterrupt:
     log.info("\nInterrupted by user")
     sys.exit(130)
-
-
 if __name__ == "__main__":
   main()
