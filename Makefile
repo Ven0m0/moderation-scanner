@@ -1,4 +1,4 @@
-.PHONY: help install dev format lint type check test clean scan
+.PHONY: help install dev format lint type check test clean scan pkg pkg-install pkg-clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -28,6 +28,16 @@ clean: ## Clean build artifacts
 	rm -rf build/ dist/ *.egg-info __pycache__ .pytest_cache .mypy_cache .ruff_cache
 	find . -type f -name '*.pyc' -delete
 	find . -type d -name '__pycache__' -delete
+
+pkg: ## Build Arch package (local)
+	./build-pkg.sh
+
+pkg-install: pkg ## Build and install Arch package
+	sudo pacman -U --noconfirm account-scanner-git-*.pkg.tar.zst
+
+pkg-clean: ## Clean package build artifacts
+	rm -f *.pkg.tar.zst
+	rm -rf src/ pkg/
 
 scan: ## Run scan (requires USERNAME variable)
 	@test -n "$(USERNAME)" || { echo "Error: USERNAME not set"; exit 1; }
