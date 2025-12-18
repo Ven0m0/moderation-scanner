@@ -22,5 +22,6 @@ args=()
 [[ ${REDDIT_CLIENT_ID:-} ]] && args+=(--client-id "$REDDIT_CLIENT_ID")
 [[ ${REDDIT_CLIENT_SECRET:-} ]] && args+=(--client-secret "$REDDIT_CLIENT_SECRET")
 [[ ${REDDIT_USER_AGENT:-} ]] && args+=(--user-agent "$REDDIT_USER_AGENT")
+export GITHUB_SEARCH_API_RATE_LIMIT=25
 # Execute
 exec python3 "$SCANNER" "${args[@]}" "$@"
