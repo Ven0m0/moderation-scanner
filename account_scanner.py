@@ -38,27 +38,59 @@ def get_limiter(rate_per_min: float):
 def sherlock_available() -> bool:
     return shutil.which("sherlock") is not None
 
+def _parse_sherlock_stdout(text: str) -> List[Dict[str, object]]:
+    seen = set()
+    parsed: List[Dict[str, object]] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if "://" not in line:
+            continue
+        if "]: " in line:
+            _, line = line.split("]: ", 1)
+        if ": " not in line:
+            continue
+        platform, url = line.split(": ", 1)
+        url = url.strip()
+        platform = platform.strip(" +[]")
+        if not url.startswith("http"):
+            continue
+        key = (platform.lower(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        parsed.append(
+            {"platform": platform, "url": url, "status": "Claimed", "response_time": None}
+        )
+    return parsed
+
+def _is_claimed(status: str) -> bool:
+    s = status.lower()
+    return not (
+        s.startswith("not")
+        or "available" in s
+        or "invalid" in s
+        or "unchecked" in s
+        or "unknown" in s
+    )
+
 async def run_sherlock(
     username: str, timeout: int, verbose: bool
 ) -> List[Dict[str, object]]:
     print(f"🔎 Sherlock: Scanning '{username}'...")
-    out_dir = Path(tempfile.mkdtemp(prefix=f"sherlock_{username}_"))
-    output_file = out_dir / f"{username}.json"
+    tmp_dir = tempfile.mkdtemp(prefix=f"sherlock_{username}_")
+    output_file = Path(tmp_dir) / f"{username}.json"
     cmd = [
         "sherlock",
         username,
         "--json",
+        str(output_file),
         "--timeout",
         str(timeout),
         "--print-found",
-        "--output",
-        str(out_dir),
     ]
-    stdout_opt = asyncio.subprocess.PIPE if verbose else asyncio.subprocess.DEVNULL
-    stderr_opt = asyncio.subprocess.PIPE if verbose else asyncio.subprocess.DEVNULL
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=stdout_opt, stderr=stderr_opt
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         try:
             await asyncio.wait_for(proc.wait(), timeout=timeout + 5)
@@ -67,28 +99,29 @@ async def run_sherlock(
             await proc.wait()
             print(f"🔎 Sherlock: timed out after {timeout}s; no results.")
             return []
-        if proc.returncode != 0:
-            if verbose and proc.stderr:
-                err_out = (await proc.stderr.read()).decode(errors="ignore")
-                print(f"Sherlock stderr:\n{err_out}", file=sys.stderr)
-            else:
-                print("🔎 Sherlock: command exited non-zero; no results.")
-        if not output_file.exists():
-            print("🔎 Sherlock: no output produced.")
-            return []
-        async with aiofiles.open(output_file, "rb") as f:
-            content = await f.read()
-        data = orjson.loads(content)
-        results = [
-            {
-                "platform": k,
-                "url": d.get("url_user"),
-                "status": d.get("status"),
-                "response_time": d.get("response_time_s"),
-            }
-            for k, d in data.items()
-            if d.get("status") == "Claimed"
-        ]
+        stdout = (await proc.stdout.read()) if proc.stdout else b""
+        stderr = (await proc.stderr.read()) if proc.stderr else b""
+        if proc.returncode != 0 and verbose and stderr:
+            print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
+        results: List[Dict[str, object]] = []
+        if output_file.exists():
+            async with aiofiles.open(output_file, "rb") as f:
+                content = await f.read()
+            data = orjson.loads(content)
+            results = [
+                {
+                    "platform": k,
+                    "url": d.get("url_user"),
+                    "status": d.get("status"),
+                    "response_time": d.get("response_time_s"),
+                }
+                for k, d in data.items()
+                if _is_claimed(str(d.get("status", "")))
+            ]
+        if not results and stdout:
+            results = _parse_sherlock_stdout(stdout.decode(errors="ignore"))
+        if not results and stderr and not verbose:
+            print(f"Sherlock stderr:\n{stderr.decode(errors='ignore')}", file=sys.stderr)
         if not results:
             print("🔎 Sherlock: no claimed accounts found.")
         else:
@@ -101,7 +134,7 @@ async def run_sherlock(
             print("🔎 Sherlock: failed; rerun with --verbose for details.")
         return []
     finally:
-        shutil.rmtree(out_dir, ignore_errors=True)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 async def check_toxicity(
     client: httpx.AsyncClient, text: str, key: str, limiter
