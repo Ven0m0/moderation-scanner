@@ -18,7 +18,6 @@ import orjson
 import uvloop
 from asyncpraw import Reddit
 from asyncprawcore import AsyncPrawcoreException
-
 # Constants
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
@@ -49,19 +48,16 @@ class ScanConfig:
   output_reddit: Path = field(default_factory=lambda: Path("reddit_flagged.csv"))
   output_sherlock: Path = field(default_factory=lambda: Path("sherlock_results.json"))
   verbose: bool = False
-
   def __post_init__(self) -> None:
     self.output_reddit = Path(self.output_reddit)
     self.output_sherlock = Path(self.output_sherlock)
     if not self.user_agent:
       self.user_agent = f"account-scanner/1.2.0 (by u/{self.username})"
-
 class RateLimiter:
   """Token bucket rate limiter."""
   def __init__(self, rate_per_min: float) -> None:
     self.delay = 60.0 / rate_per_min
     self.last_call = 0.0
-
   async def wait(self) -> None:
     now = time.monotonic()
     elapsed = now - self.last_call
@@ -71,11 +67,9 @@ class RateLimiter:
 
 class SherlockScanner:
   """Handles Sherlock OSINT scanning."""
-
   @staticmethod
   def available() -> bool:
     return shutil.which("sherlock") is not None
-
   @staticmethod
   def _parse_stdout(text: str) -> list[dict[str, Any]]:
     """Parse Sherlock stdout as fallback."""
