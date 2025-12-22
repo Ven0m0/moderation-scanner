@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multi-source account scanner: Reddit toxicity + Sherlock OSINT."""
+"""Multi-source account scanner:  Reddit toxicity + Sherlock OSINT."""
 import argparse
 import asyncio
 import csv
@@ -11,21 +11,25 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
+
 import aiofiles
 import httpx
 import orjson
 import uvloop
 from asyncpraw import Reddit
 from asyncprawcore import AsyncPrawcoreException
+
 # Constants
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
 ATTRIBUTES: Final = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class ScanConfig:
@@ -37,7 +41,7 @@ class ScanConfig:
   client_id: str | None = None
   client_secret: str | None = None
   user_agent: str | None = None
-  comments: int = 50
+  comments:  int = 50
   posts: int = 20
   threshold: float = 0.7
   rate_per_min: float = 60.0
@@ -47,17 +51,21 @@ class ScanConfig:
   output_reddit: Path = field(default_factory=lambda: Path("reddit_flagged.csv"))
   output_sherlock: Path = field(default_factory=lambda: Path("sherlock_results.json"))
   verbose: bool = False
+
   def __post_init__(self) -> None:
     self.output_reddit = Path(self.output_reddit)
     self.output_sherlock = Path(self.output_sherlock)
     if not self.user_agent:
-      self.user_agent = f"account-scanner/1.2.3 (by u/{self.username})"
+      self.user_agent = f"account-scanner/1.2. 3 (by u/{self.username})"
+
 
 class RateLimiter:
   """Token bucket rate limiter."""
+
   def __init__(self, rate_per_min: float) -> None:
     self.delay = 60.0 / rate_per_min
     self.last_call = 0.0
+
   async def wait(self) -> None:
     now = time.monotonic()
     elapsed = now - self.last_call
@@ -65,21 +73,24 @@ class RateLimiter:
       await asyncio.sleep(self.delay - elapsed)
     self.last_call = time.monotonic()
 
+
 class SherlockScanner:
   """Handles Sherlock OSINT scanning."""
+
   @staticmethod
   def available() -> bool:
     return shutil.which("sherlock") is not None
+
   @staticmethod
   def _parse_stdout(text: str) -> list[dict[str, Any]]:
     """Parse Sherlock stdout as fallback."""
-    seen: set[tuple[str, str]] = set()
-    results: list[dict[str, Any]] = []
+    seen:  set[tuple[str, str]] = set()
+    results:  list[dict[str, Any]] = []
     for line in text.splitlines():
       line = line.strip()
-      if "://" not in line or ": " not in line:
+      if "://" not in line or ":  " not in line:
         continue
-      if "]: " in line:
+      if "]:  " in line:
         _, line = line.split("]: ", 1)
       parts = line.split(": ", 1)
       if len(parts) != 2:
@@ -87,9 +98,9 @@ class SherlockScanner:
       platform, url = parts
       url = url.strip()
       platform = platform.strip(" +[]")
-      if not url.startswith("http"):
+      if not url. startswith("http"):
         continue
-      key = (platform.lower(), url)
+      key = (platform. lower(), url)
       if key in seen:
         continue
       seen.add(key)
@@ -100,15 +111,17 @@ class SherlockScanner:
         "response_time": None,
       })
     return results
+
   @staticmethod
   def _is_claimed(status: str) -> bool:
     """Check if account status indicates claimed."""
     s = status.lower()
     invalid = ("not", "available", "invalid", "unchecked", "unknown")
     return not any(x in s or s.startswith(x) for x in invalid)
-  async def scan(self, username: str, timeout: int, verbose: bool) -> list[dict[str, Any]]:
+
+  async def scan(self, username: str, timeout: int, verbose: bool) -> list[dict[str, Any]]: 
     """Run Sherlock scan for username."""
-    log.info("🔎 Sherlock: Scanning '%s'...", username)
+    log.info("🔎 Sherlock:  Scanning '%s'.. .", username)
     cmd = [
       "sherlock", username,
       "--timeout", str(timeout),
@@ -136,7 +149,7 @@ class SherlockScanner:
         if stderr:
           log.debug("Sherlock stderr:\n%s", stderr.decode(errors="ignore"))
       # Parse stdout
-      results: list[dict[str, Any]] = []
+      results:  list[dict[str, Any]] = []
       if stdout:
         results = self._parse_stdout(stdout.decode(errors="ignore"))
       if results:
@@ -153,11 +166,14 @@ class SherlockScanner:
         log.info("🔎 Sherlock: failed; rerun with --verbose for details")
       return []
 
+
 class RedditScanner:
   """Handles Reddit toxicity analysis."""
+
   def __init__(self, config: ScanConfig) -> None:
     self.config = config
     self.limiter = RateLimiter(config.rate_per_min)
+
   async def _check_toxicity(
     self,
     client: httpx.AsyncClient,
@@ -165,11 +181,11 @@ class RedditScanner:
     key: str,
   ) -> dict[str, float]:
     """Analyze text toxicity via Perspective API."""
-    if not text.strip():
+    if not text. strip():
       return {}
     await self.limiter.wait()
     payload = {
-      "comment": {"text": text},
+      "comment":  {"text": text},
       "languages": ["en"],
       "requestedAttributes": {a: {} for a in ATTRIBUTES},
     }
@@ -184,17 +200,18 @@ class RedditScanner:
         data = orjson.loads(resp.content)
         return {
           k: v["summaryScore"]["value"]
-          for k, v in data.get("attributeScores", {}).items()
+          for k, v in data. get("attributeScores", {}).items()
         }
-    except Exception:
+    except Exception: 
       pass
     return {}
+
   async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
     """Fetch Reddit comments and posts."""
     cfg = self.config
-    log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
-    reddit: Reddit | None = None
-    try:
+    log.info("🤖 Reddit: Fetching content for u/%s.. .", cfg.username)
+    reddit:  Reddit | None = None
+    try: 
       reddit = Reddit(
         client_id=cfg.client_id,
         client_secret=cfg.client_secret,
@@ -202,18 +219,18 @@ class RedditScanner:
         requestor_kwargs={"timeout": DEFAULT_TIMEOUT},
       )
       user = await reddit.redditor(cfg.username)
-      items: list[tuple[str, str, str, float]] = []
+      items:  list[tuple[str, str, str, float]] = []
       async for c in user.comments.new(limit=cfg.comments):
-        items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
+        items.append(("comment", c.subreddit. display_name, c.body, c.created_utc))
       async for s in user.submissions.new(limit=cfg.posts):
         items.append((
           "post",
-          s.subreddit.display_name,
+          s. subreddit.display_name,
           f"{s.title}\n{s.selftext}",
           s.created_utc,
         ))
       return items if items else None
-    except AsyncPrawcoreException as e:
+    except AsyncPrawcoreException as e: 
       log.error("Reddit API Error: %s", e)
     except Exception as e:
       log.error("Reddit fetch error: %s", e)
@@ -221,13 +238,14 @@ class RedditScanner:
       if reddit:
         await reddit.close()
     return None
+
   async def scan(self) -> list[dict[str, Any]] | None:
     """Scan Reddit content for toxicity."""
     items = await self._fetch_items()
     if not items:
       log.info("🤖 Reddit: No items to analyze")
       return None
-    log.info("🤖 Reddit: Analyzing %d items...", len(items))
+    log.info("🤖 Reddit:  Analyzing %d items...", len(items))
     headers = {"Content-Type": "application/json"}
     async with httpx.AsyncClient(
       http2=True,
@@ -239,14 +257,14 @@ class RedditScanner:
         for _, _, text, _ in items
       ])
     # Filter flagged content
-    flagged: list[dict[str, Any]] = []
+    flagged:  list[dict[str, Any]] = []
     for (kind, sub, text, ts), scores in zip(items, results):
-      if any(s >= self.config.threshold for s in scores.values()):
+      if any(s >= self.config.threshold for s in scores. values()):
         flagged.append({
           "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)),
           "type": kind,
           "subreddit": str(sub),
-          "content": text[:500],
+          "content": text[: 500],
           **scores,
         })
     if flagged:
@@ -259,15 +277,65 @@ class RedditScanner:
       writer.writeheader()
       writer.writerows(flagged)
       async with aiofiles.open(self.config.output_reddit, "w", encoding="utf-8") as f:
-        await f.write(buffer.getvalue())
+        await f. write(buffer.getvalue())
       log.info(
-        "🤖 Reddit: Saved %d flagged items → %s",
+        "🤖 Reddit:  Saved %d flagged items → %s",
         len(flagged),
-        self.config.output_reddit,
+        self.config. output_reddit,
       )
     else:
       log.info("🤖 Reddit: No toxic content found")
     return flagged
+
+
+class ScannerAPI:
+  """Library interface for programmatic access (Discord bot, web API, etc)."""
+
+  @staticmethod
+  async def scan_user(
+    username: str,
+    config: ScanConfig,
+  ) -> dict[str, Any]:
+    """Run scan and return structured results without file I/O. 
+
+    Returns:
+      {
+        "username": str,
+        "sherlock":  list[dict] | None,
+        "reddit":  list[dict] | None,
+        "errors": list[str]
+      }
+    """
+    results:  dict[str, Any] = {
+      "username": username,
+      "sherlock": None,
+      "reddit": None,
+      "errors": [],
+    }
+    tasks:  list[tuple[str, Any]] = []
+    if config.mode in ("sherlock", "both"):
+      if SherlockScanner.available():
+        scanner = SherlockScanner()
+        tasks.append(("sherlock", scanner.scan(username, config.sherlock_timeout, config.verbose)))
+      else:
+        results["errors"].append("Sherlock not installed")
+    if config.mode in ("reddit", "both"):
+      if all((config.api_key, config. client_id, config.client_secret)):
+        reddit = RedditScanner(config)
+        tasks.append(("reddit", reddit.scan()))
+      elif config.mode == "reddit":
+        results["errors"].append("Reddit mode requires API credentials")
+    if not tasks:
+      results["errors"]. append("No valid scan modes configured")
+      return results
+    completed = await asyncio.gather(*[t[1] for t in tasks], return_exceptions=True)
+    for (scan_type, _), result in zip(tasks, completed):
+      if isinstance(result, Exception):
+        results["errors"].append(f"{scan_type} failed: {result}")
+      else:
+        results[scan_type] = result
+    return results
+
 
 async def main_async() -> None:
   """Main async entry point."""
@@ -298,22 +366,22 @@ async def main_async() -> None:
   parser.add_argument("--rate-per-min", type=float, default=60.0, help="API rate limit")
   parser.add_argument("--sherlock-timeout", type=int, default=60, help="Sherlock timeout (s)")
   parser.add_argument("--output-reddit", default="reddit_flagged.csv", help="Reddit output file")
-  parser.add_argument("--output-sherlock", default="sherlock_results.json", help="Sherlock output file")
+  parser.add_argument("--output-sherlock", default="sherlock_results. json", help="Sherlock output file")
   parser.add_argument("--verbose", action="store_true", help="Verbose output")
   args = parser.parse_args()
   if args.verbose:
     logging.getLogger().setLevel(logging.DEBUG)
   config = ScanConfig(**vars(args))
   # Validate requirements
-  tasks: list[Any] = []
-  if config.mode in ("sherlock", "both"):
+  tasks:  list[Any] = []
+  if config. mode in ("sherlock", "both"):
     if SherlockScanner.available():
       scanner = SherlockScanner()
       tasks.append(scanner.scan(config.username, config.sherlock_timeout, config.verbose))
     else:
       log.warning("Sherlock not installed, skipping")
   if config.mode in ("reddit", "both"):
-    if all((config.api_key, config.client_id, config.client_secret)):
+    if all((config.api_key, config.client_id, config. client_secret)):
       reddit = RedditScanner(config)
       tasks.append(reddit.scan())
     elif config.mode == "reddit":
@@ -333,13 +401,17 @@ async def main_async() -> None:
         len(result),
         config.output_sherlock,
       )
+
+
 def main() -> None:
   """Main entry point."""
   uvloop.install()
   try:
     asyncio.run(main_async())
   except KeyboardInterrupt:
-    log.info("\nInterrupted by user")
+    log. info("\nInterrupted by user")
     sys.exit(130)
+
+
 if __name__ == "__main__":
   main()
