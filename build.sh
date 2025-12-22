@@ -3,22 +3,20 @@
 set -euo pipefail
 IFS=$'\n\t' LC_ALL=C
 
-err() { printf '%s\n' "$*" >&2; }
-die() { err "$@"; exit 1; }
+has(){ command -v -- "$1" &>/dev/null; }
+msg(){ printf '%s\n' "$@"; }
+die(){ printf '%s\n' "$1" >&2; exit "${2:-1}"; }
 
-# Check dependencies
-command -v makepkg &>/dev/null || die "makepkg not found - install 'base-devel'"
-command -v python &>/dev/null || die "python not found"
+has makepkg || die "makepkg not found - install 'base-devel'"
+has python || die "python not found"
 
-# Build from local PKGBUILD
 if [[ -f PKGBUILD-local ]]; then
-  printf 'Building local development package...\n'
+  msg 'Building local development package.. .'
   makepkg -f -p PKGBUILD-local "$@"
 else
-  printf 'Building release package...\n'
+  msg 'Building release package...'
   makepkg -f "$@"
 fi
 
-# Show built packages
-printf '\nBuilt packages:\n'
-ls -lh ./*.pkg.tar.zst 2>/dev/null || true
+msg $'\nBuilt packages:'
+ls -lh . /*.pkg.tar.zst 2>/dev/null || msg 'No packages found'
