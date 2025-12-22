@@ -21,6 +21,7 @@ dependencies = [
   "asyncpraw>=7.8.0,<8.0.0",
   "uvloop>=0.22.0,<0.23.0; platform_system != 'Windows'",
   "aiofiles>=24.1.0,<25.0.0",
+  "py-cord>=2.6.0,<3.0.0",  # Discord bot framework
 ]
 
 [project.optional-dependencies]
@@ -32,7 +33,8 @@ dev = [
 ]
 
 [project.scripts]
-account-scanner = "account_scanner:main"
+account-scanner = "account_scanner: main"
+scanner-bot = "discord_bot:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]
