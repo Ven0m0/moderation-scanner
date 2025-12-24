@@ -2,8 +2,9 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    labels: []
     schedule:
-      interval: "weekly"
+      interval: "daily"
     groups:
       github-actions-all:
         patterns:
@@ -11,10 +12,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    open-pull-requests-limit: 10
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     ignore:
       - dependency-name: "pip"
     groups:
@@ -27,11 +29,35 @@ updates:
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     ignore:
       - dependency-name: "pip"
     groups:
       uv-all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    versioning-strategy: "increase-if-necessary"
+    groups:
+      npm-all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    versioning-strategy: "increase-if-necessary"
+    groups:
+      bun-all:
         patterns:
           - "*"
         update-types:
