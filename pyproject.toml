@@ -16,29 +16,34 @@ classifiers = [
 ]
 
 dependencies = [
-  "httpx[http2]>=0.28.0,<0.29.0",
-  "orjson>=3.11.0,<4.0.0",
-  "asyncpraw>=7.8.0,<8.0.0",
-  "uvloop>=0.22.0,<0.23.0; platform_system != 'Windows'",
-  "aiofiles>=24.1.0,<25.0.0",
-  "py-cord>=2.6.0,<3.0.0",  # Discord bot framework
+  "httpx[http2]~=0.28.0",  # Allow patch updates in 0.28.x
+  "orjson>=3.11.0,<4.0.0",  # Major version lock due to API stability
+  "asyncpraw>=7.8.0,<8.0.0",  # Major version lock
+  "uvloop~=0.22.0; platform_system != 'Windows'",  # Allow patch updates
+  "aiofiles~=24.1",  # Allow minor updates in 24.x
+  "py-cord>=2.6.0,<3.0.0",  # Discord bot framework - major version lock
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff>=0.8.0,<0.9.0",
-  "mypy>=1.14.0,<2.0.0",
-  "pytest>=8.3.0,<9.0.0",
-  "pytest-asyncio>=0.24.0,<0.25.0",
+  "ruff~=0.8.0",
+  "mypy~=1.14.0",
+  "pytest~=8.3.0",
+  "pytest-asyncio~=0.24.0",
+  "pip-audit>=2.10.0",  # Security vulnerability scanning
+  "types-aiofiles>=24.0.0",  # Type stubs for mypy
 ]
 
 [project.scripts]
-account-scanner = "account_scanner: main"
+account-scanner = "account_scanner:main"
 scanner-bot = "discord_bot:main"
 
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=78.1.1"]  # Security: CVE-2024-6345, PYSEC-2025-49
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["account_scanner", "discord_bot"]
 
 [tool.mypy]
 python_version = "3.11"
