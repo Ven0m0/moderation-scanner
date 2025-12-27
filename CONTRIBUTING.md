@@ -316,7 +316,7 @@ git push origin feature/your-feature-name
 - [ ] Updated documentation (README, docstrings)
 - [ ] Ran ruff format and ruff check
 - [ ] Ran mypy type checking
-- [ ] Updated CHANGELOG.md (for notable changes)
+- [ ] Updated changelog.md (for notable changes)
 - [ ] No secrets or credentials in code
 
 ## Project Architecture
