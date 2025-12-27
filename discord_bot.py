@@ -377,21 +377,53 @@ def main() -> None:
         sys.exit(1)
 
     # Install uvloop for better async performance
-    uvloop.install()
+    try:
+        uvloop.install()
+        log.info("uvloop installed for better async performance")
+    except Exception as e:
+        log.warning("Failed to install uvloop, using default event loop: %s", e)
+
     log.info("Starting Discord bot...")
 
-    # Run bot
+    # Run bot with comprehensive error handling
     try:
         bot.run(config.discord_token)
-    except discord.LoginFailure:
-        log.error("Invalid Discord token")
+    except discord.LoginFailure as e:
+        log.error("Discord login failed - invalid token: %s", e)
+        sys.exit(1)
+    except discord.PrivilegedIntentsRequired as e:
+        log.error("Missing required Discord intents: %s", e)
+        log.error("Enable 'Message Content Intent' in Discord Developer Portal")
+        sys.exit(1)
+    except discord.HTTPException as e:
+        log.error("Discord HTTP error: %s (status: %s)", e.text, e.status)
+        sys.exit(1)
+    except TypeError as e:
+        # Catch argument errors (like the log_handler issue)
+        log.error("TypeError in bot.run(): %s", e)
+        log.error("This may indicate an API compatibility issue")
         sys.exit(1)
     except KeyboardInterrupt:
         log.info("Interrupted by user")
         sys.exit(0)
     except Exception as e:
         log.error("Fatal error: %s", e, exc_info=e)
+        log.error("Bot crashed - check logs above for details")
         sys.exit(1)
+    finally:
+        log.info("Cleaning up tasks.")
+        try:
+            # Clean up any pending tasks
+            loop = asyncio.get_event_loop()
+            if not loop.is_closed():
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                log.info("Closing the event loop.")
+                loop.close()
+        except Exception as e:
+            log.warning("Error during cleanup: %s", e)
 
 
 if __name__ == "__main__":
