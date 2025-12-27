@@ -6,8 +6,10 @@ Multi-source account scanner combining Reddit toxicity analysis via Perspective 
 
 - **Reddit Analysis**: Scan user comments/posts for toxic content using Google Perspective API
 - **OSINT Discovery**: Enumerate username across 300+ platforms via Sherlock
+- **Discord Bot**: Ready-to-deploy moderation bot with slash commands
 - **Async Performance**: HTTP/2 support with configurable rate limiting
 - **Flexible Output**: CSV for Reddit results, JSON for Sherlock findings
+- **Production Ready**: Docker support with Fly.io deployment configuration
 
 ## Requirements
 
@@ -141,6 +143,49 @@ timestamp,type,subreddit,content,TOXICITY,INSULT,PROFANITY,SEXUALLY_EXPLICIT
   }
 ]
 ```
+
+## Discord Bot
+
+The project includes a production-ready Discord bot for server moderation.
+
+### Features
+
+- `!scan <username> [mode]` - Scan accounts across platforms
+- `!health` - Check bot and API status
+- `!help` - Display help information
+- Permission-based access control
+- Rate limiting and cooldowns
+- Rich embed responses
+
+### Local Testing
+
+```bash
+# Set environment variables
+export DISCORD_BOT_TOKEN="your_token"
+export REDDIT_CLIENT_ID="your_id"
+export REDDIT_CLIENT_SECRET="your_secret"
+export PERSPECTIVE_API_KEY="your_key"
+
+# Run the bot
+python discord_bot.py
+```
+
+### Cloud Deployment
+
+**Quick Deploy to Fly.io (FREE):**
+
+See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
+
+**Full Documentation:**
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Complete Fly.io deployment guide
+- [PRODUCTION.md](PRODUCTION.md) - Production best practices and optimization
+- [.env.example](.env.example) - Environment variable template
+
+**Other Hosting Options:**
+- Fly.io (recommended, free tier available)
+- Railway ($5/month after trial)
+- Render.com (free tier with limitations)
+- Oracle Cloud (free tier, requires VPS setup)
 
 ## Development
 
