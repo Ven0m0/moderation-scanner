@@ -288,6 +288,8 @@ if results["errors"]:
 
 ```python
 # In your Discord bot
+import os
+import discord
 from account_scanner import ScannerAPI, ScanConfig
 
 @bot.command()
