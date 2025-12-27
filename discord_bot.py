@@ -416,7 +416,7 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
 
             if reddit_text:
                 await ctx.send(reddit_text)
-        elif mode in ("reddit", "both"):
+        elif mode in ("reddit", "both") and "reddit" not in results:
             await ctx.send(f"✅ **No toxic content found for {username}**")
 
         log.info("Scan completed for user '%s'", username)
