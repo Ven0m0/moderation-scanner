@@ -20,7 +20,7 @@ dependencies = [
   "orjson>=3.11.0,<4.0.0",  # Major version lock due to API stability
   "asyncpraw>=7.8.0,<8.0.0",  # Major version lock
   "uvloop~=0.22.0; platform_system != 'Windows'",  # Allow patch updates
-  "aiofiles~=24.1",  # Allow minor updates in 24.x
+  "aiofiles~=25.1",  # Allow minor updates in 24.x
   "py-cord>=2.6.0,<3.0.0",  # Discord bot framework - major version lock
 ]
 
