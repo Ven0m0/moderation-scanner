@@ -361,15 +361,31 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
                 inline=False,
             )
 
-        # Add data location
-        if results.get("sherlock") or results.get("reddit"):
-            embed.add_field(
-                name="📁 Data Location",
-                value=f"`{SCANS_DIR}/{username}_*`",
-                inline=False,
-            )
+        # Prepare file attachments
+        files_to_send = []
+        if results.get("reddit") and scan_config.output_reddit.exists():
+            try:
+                files_to_send.append(
+                    discord.File(scan_config.output_reddit, filename=f"{username}_reddit.csv")
+                )
+            except Exception as e:
+                log.warning("Failed to attach Reddit CSV: %s", e)
 
-        await status_msg.edit(content=None, embed=embed)
+        if results.get("sherlock") and scan_config.output_sherlock.exists():
+            try:
+                files_to_send.append(
+                    discord.File(scan_config.output_sherlock, filename=f"{username}_sherlock.json")
+                )
+            except Exception as e:
+                log.warning("Failed to attach Sherlock JSON: %s", e)
+
+        # Send results as new message with attachments
+        if files_to_send:
+            await ctx.send(embed=embed, files=files_to_send)
+            await status_msg.delete()
+        else:
+            await status_msg.edit(content=None, embed=embed)
+
         log.info("Scan completed for user '%s'", username)
 
     except asyncio.TimeoutError:
