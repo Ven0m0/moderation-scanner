@@ -382,7 +382,7 @@ def main() -> None:
 
     # Run bot
     try:
-        bot.run(config.discord_token, log_handler=None)  # We have our own logging
+        bot.run(config.discord_token)
     except discord.LoginFailure:
         log.error("Invalid Discord token")
         sys.exit(1)
