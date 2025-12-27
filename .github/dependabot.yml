@@ -1,63 +1,72 @@
+# Dependabot configuration for automated dependency updates
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    labels: []
-    schedule:
-      interval: "daily"
-    groups:
-      github-actions-all:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    open-pull-requests-limit: 10
+  # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"
-    ignore:
-      - dependency-name: "pip"
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Ven0m0"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group minor and patch updates
     groups:
-      pip-all:
+      production-dependencies:
         patterns:
-          - "*"
+          - "httpx*"
+          - "orjson"
+          - "asyncpraw"
+          - "uvloop"
+          - "aiofiles"
+          - "py-cord"
         update-types:
           - "minor"
           - "patch"
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    ignore:
-      - dependency-name: "pip"
-    groups:
-      uv-all:
+      development-dependencies:
         patterns:
-          - "*"
+          - "ruff"
+          - "mypy"
+          - "pytest*"
+          - "pip-audit"
+          - "types-*"
         update-types:
           - "minor"
           - "patch"
-  - package-ecosystem: "npm"
+    # Allow version updates for dependencies
+    allow:
+      - dependency-type: "all"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
-    versioning-strategy: "increase-if-necessary"
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Ven0m0"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Group all GitHub Actions updates together
     groups:
-      npm-all:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "bun"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    versioning-strategy: "increase-if-necessary"
-    groups:
-      bun-all:
+      github-actions:
         patterns:
           - "*"
         update-types:
