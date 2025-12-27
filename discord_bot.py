@@ -361,30 +361,63 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
                 inline=False,
             )
 
-        # Prepare file attachments
-        files_to_send = []
-        if results.get("reddit") and scan_config.output_reddit.exists():
-            try:
-                files_to_send.append(
-                    discord.File(scan_config.output_reddit, filename=f"{username}_reddit.csv")
-                )
-            except Exception as e:
-                log.warning("Failed to attach Reddit CSV: %s", e)
+        # Send summary embed
+        await status_msg.edit(content=None, embed=embed)
 
-        if results.get("sherlock") and scan_config.output_sherlock.exists():
-            try:
-                files_to_send.append(
-                    discord.File(scan_config.output_sherlock, filename=f"{username}_sherlock.json")
-                )
-            except Exception as e:
-                log.warning("Failed to attach Sherlock JSON: %s", e)
+        # Send detailed results as formatted text messages
+        # Sherlock results
+        if results.get("sherlock"):
+            sherlock_text = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+            for account in results["sherlock"]:
+                sherlock_text += f"{account['platform']}: {account['url']}\n"
+            sherlock_text += "```"
 
-        # Send results as new message with attachments
-        if files_to_send:
-            await ctx.send(embed=embed, files=files_to_send)
-            await status_msg.delete()
-        else:
-            await status_msg.edit(content=None, embed=embed)
+            # Split if too long (Discord has 2000 char limit)
+            if len(sherlock_text) > 1900:
+                chunks = []
+                current_chunk = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+                for account in results["sherlock"]:
+                    line = f"{account['platform']}: {account['url']}\n"
+                    if len(current_chunk) + len(line) + 3 > 1900:  # +3 for ```
+                        current_chunk += "```"
+                        chunks.append(current_chunk)
+                        current_chunk = "```\n"
+                    current_chunk += line
+                current_chunk += "```"
+                chunks.append(current_chunk)
+
+                for chunk in chunks:
+                    await ctx.send(chunk)
+            else:
+                await ctx.send(sherlock_text)
+
+        # Reddit results
+        if results.get("reddit"):
+            reddit_text = f"**🤖 Reddit Toxicity Analysis for {username}:**\n"
+
+            for item in results["reddit"]:
+                # Format each item
+                item_text = (
+                    f"```\n"
+                    f"Time: {item['timestamp']}\n"
+                    f"Type: {item['type']} | Subreddit: r/{item['subreddit']}\n"
+                    f"Toxicity: {item['TOXICITY']:.2f} | Insult: {item['INSULT']:.2f} | "
+                    f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}\n"
+                    f"Content: {item['content'][:200]}{'...' if len(item['content']) > 200 else ''}\n"
+                    f"```\n"
+                )
+
+                # Check if adding this item would exceed limit
+                if len(reddit_text) + len(item_text) > 1900:
+                    await ctx.send(reddit_text)
+                    reddit_text = ""
+
+                reddit_text += item_text
+
+            if reddit_text:
+                await ctx.send(reddit_text)
+        elif mode in ("reddit", "both"):
+            await ctx.send(f"✅ **No toxic content found for {username}**")
 
         log.info("Scan completed for user '%s'", username)
 
