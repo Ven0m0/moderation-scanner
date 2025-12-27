@@ -30,8 +30,9 @@ kill_timeout = "30s"
   min_machines_running = 1
 
 # Health checks to ensure bot stays online
+# Note: restart_limit prevents endless crash loops (0 = unlimited)
 [[services.tcp_checks]]
   grace_period = "30s"
   interval = "15s"
-  restart_limit = 0
+  restart_limit = 10
   timeout = "10s"
