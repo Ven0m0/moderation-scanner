@@ -187,21 +187,173 @@ See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
 - Render.com (free tier with limitations)
 - Oracle Cloud (free tier, requires VPS setup)
 
+## Architecture
+
+### Project Structure
+
+```
+moderation-scanner/
+├── account_scanner.py    # Core scanner library (Reddit + Sherlock)
+├── discord_bot.py        # Discord bot integration
+├── scan.sh               # Wrapper script for CLI usage
+├── test-scanner.py       # Test suite
+├── fly.toml              # Fly.io deployment config
+├── Dockerfile            # Container image
+└── docs/
+    ├── INSTALL.md        # Installation guide
+    ├── DEPLOYMENT.md     # Cloud deployment guide
+    ├── PRODUCTION.md     # Production best practices
+    ├── QUICKSTART.md     # 5-minute quick start
+    └── CONTRIBUTING.md   # Development guide
+```
+
+### Component Overview
+
+**account_scanner.py** - Core scanning engine
+- `ScanConfig`: Configuration dataclass for scan parameters
+- `RateLimiter`: Token bucket rate limiter for API throttling
+- `SherlockScanner`: Wrapper for Sherlock OSINT tool
+- `RedditScanner`: Reddit API + Perspective API toxicity analysis
+- `ScannerAPI`: High-level library interface for programmatic use
+
+**discord_bot.py** - Discord integration
+- `BotConfig`: Environment-based configuration management
+- Commands: `!scan`, `!health`, `!help`, `!shutdown`
+- Permission-based access control and rate limiting
+- Rich embed formatting for results
+
+### Data Flow
+
+1. **Input**: Username + scan mode (sherlock/reddit/both)
+2. **Reddit Path**:
+   - Fetch comments/posts via AsyncPRAW
+   - Analyze toxicity via Perspective API (HTTP/2, rate-limited)
+   - Filter by threshold, save flagged items to CSV
+3. **Sherlock Path**:
+   - Execute Sherlock subprocess
+   - Parse stdout for claimed accounts
+   - Return structured JSON
+4. **Output**: Structured results dict or file output
+
+### Technology Stack
+
+- **Python 3.11+** with type hints and dataclasses
+- **AsyncIO**: uvloop for high-performance event loop
+- **HTTP**: httpx with HTTP/2 support
+- **APIs**: AsyncPRAW (Reddit), Google Perspective API
+- **OSINT**: Sherlock command-line tool integration
+- **Discord**: discord.py with commands extension
+- **Data**: CSV (Reddit), JSON (Sherlock)
+
+## API Reference
+
+### Library Usage
+
+```python
+from account_scanner import ScannerAPI, ScanConfig
+
+# Configure scan
+config = ScanConfig(
+    username="target_user",
+    mode="both",                    # "sherlock", "reddit", or "both"
+    api_key="perspective_key",      # Google Perspective API
+    client_id="reddit_client_id",
+    client_secret="reddit_secret",
+    comments=100,                   # Max comments to fetch
+    posts=50,                       # Max posts to fetch
+    threshold=0.7,                  # Toxicity threshold (0-1)
+    rate_per_min=60.0,             # API rate limit
+    sherlock_timeout=60,           # Sherlock timeout (seconds)
+    verbose=False
+)
+
+# Run scan (async)
+results = await ScannerAPI.scan_user("target_user", config)
+
+# Access results
+if results["reddit"]:
+    for item in results["reddit"]:
+        print(f"Toxic content: {item['content'][:100]}")
+        print(f"Toxicity: {item['TOXICITY']:.2f}")
+
+if results["sherlock"]:
+    for account in results["sherlock"]:
+        print(f"{account['platform']}: {account['url']}")
+
+if results["errors"]:
+    print(f"Errors: {results['errors']}")
+```
+
+### Discord Bot Usage
+
+```python
+# In your Discord bot
+from account_scanner import ScannerAPI, ScanConfig
+
+@bot.command()
+async def scan(ctx, username: str):
+    config = ScanConfig(
+        username=username,
+        mode="both",
+        api_key=os.getenv("PERSPECTIVE_API_KEY"),
+        client_id=os.getenv("REDDIT_CLIENT_ID"),
+        client_secret=os.getenv("REDDIT_CLIENT_SECRET")
+    )
+
+    results = await ScannerAPI.scan_user(username, config)
+
+    # Display results in embed
+    embed = discord.Embed(title=f"Scan: {username}")
+    if results.get("reddit"):
+        embed.add_field(
+            name="Reddit",
+            value=f"{len(results['reddit'])} toxic items found"
+        )
+    await ctx.send(embed=embed)
+```
+
 ## Development
 
+### Setup Development Environment
+
 ```bash
-# Format
+# Clone repository
+git clone <repo-url>
+cd moderation-scanner
+
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Install Sherlock (optional, for OSINT scanning)
+pip install sherlock-project
+
+# Set up pre-commit hooks (recommended)
+pre-commit install
+```
+
+### Code Quality
+
+```bash
+# Format code
 ruff format .
 
-# Lint
+# Lint code
 ruff check .
 
-# Type check
-mypy account_scanner.py
+# Type checking
+mypy account_scanner.py discord_bot.py
 
 # Run tests
 pytest
+
+# Run tests with coverage
+pytest --cov=account_scanner --cov-report=html
 ```
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, coding standards,
+and how to submit pull requests.
 
 ## Toxicity Attributes
 
