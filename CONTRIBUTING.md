@@ -413,8 +413,8 @@ docker run -e DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN account-scanner
 # Update specific package
 pip install --upgrade package-name
 
-# Update all packages (careful!)
-pip install --upgrade -r requirements.txt
+# Update all packages from pyproject.toml (careful!)
+pip install --upgrade -e ".[dev]"
 ```
 
 ## Questions or Issues?
