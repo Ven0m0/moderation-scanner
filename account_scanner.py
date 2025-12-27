@@ -379,7 +379,7 @@ class RedditScanner:
 
       Returns empty dict if text is empty or API request fails.
     """
-    if not text. strip():
+    if not text.strip():
       return {}
     await self.limiter.wait()
     payload = {
