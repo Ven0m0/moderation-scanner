@@ -1,12 +1,16 @@
-# fly.toml app configuration file generated for moderation-scanner on 2025-12-27T07:00:50Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
+# Fly.io configuration for Discord Account Scanner Bot
+# Documentation: https://fly.io/docs/reference/configuration/
 app = 'moderation-scanner'
 primary_region = 'ams'
+kill_signal = "SIGINT"
+kill_timeout = "30s"
 
 [build]
+
+[env]
+  PYTHONUNBUFFERED = "1"
+  PYTHONDONTWRITEBYTECODE = "1"
+  PYTHONOPTIMIZE = "1"
 
 [http_service]
   internal_port = 8080
