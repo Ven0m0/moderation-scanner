@@ -1,5 +1,52 @@
 #!/usr/bin/env python3
-"""Discord moderation bot using account scanner."""
+"""Discord moderation bot for account scanning and OSINT research.
+
+This Discord bot provides server moderators with tools to scan user accounts
+across platforms for moderation purposes. It integrates the account_scanner
+module to perform Reddit toxicity analysis and Sherlock OSINT username enumeration.
+
+## Features
+
+- **!scan <username> [mode]**: Scan accounts across Reddit and/or social platforms
+- **!health**: Check bot health and API service availability
+- **!help**: Display help and usage information
+- **!shutdown**: Shutdown the bot (admin only)
+
+## Commands
+
+All scanning commands require the "Moderate Members" permission. Rate limiting
+(1 scan per 30 seconds per user) prevents abuse.
+
+## Configuration
+
+The bot is configured via environment variables:
+
+- **DISCORD_BOT_TOKEN** (required): Discord bot token from Developer Portal
+- **PERSPECTIVE_API_KEY**: Google Perspective API key for toxicity analysis
+- **REDDIT_CLIENT_ID**: Reddit API client ID
+- **REDDIT_CLIENT_SECRET**: Reddit API client secret
+- **REDDIT_USER_AGENT**: Reddit API user agent (optional)
+- **ADMIN_USER_IDS**: Comma-separated Discord user IDs for admin commands
+- **LOG_CHANNEL_ID**: Channel ID for bot logging (optional)
+
+## Architecture
+
+- Built with discord.py and commands extension
+- Uses uvloop for improved async performance
+- Integrates ScannerAPI from account_scanner module
+- Stores scan results in local ./scans directory
+- Rich embed formatting for scan results
+
+## Running the Bot
+
+    export DISCORD_BOT_TOKEN="your_token"
+    export PERSPECTIVE_API_KEY="your_key"
+    export REDDIT_CLIENT_ID="your_id"
+    export REDDIT_CLIENT_SECRET="your_secret"
+    python discord_bot.py
+
+See DEPLOYMENT.md for production deployment instructions.
+"""
 import asyncio
 import logging
 import os
@@ -28,13 +75,30 @@ SCANS_DIR: Final = Path("./scans")
 
 
 class ConfigurationError(Exception):
-    """Raised when bot configuration is invalid."""
+    """Raised when bot configuration is invalid or incomplete."""
 
 
 class BotConfig:
-    """Bot configuration from environment variables."""
+    """Bot configuration manager using environment variables.
+
+    Loads and validates all bot configuration from environment variables.
+    Provides helper methods to check if optional features are configured.
+
+    Attributes:
+        discord_token: Discord bot token (required).
+        perspective_key: Google Perspective API key (optional).
+        reddit_client_id: Reddit API client ID (optional).
+        reddit_client_secret: Reddit API client secret (optional).
+        reddit_user_agent: Reddit API user agent string.
+        admin_user_ids: Set of Discord user IDs with admin privileges.
+        log_channel_id: Channel ID for logging bot events (optional).
+
+    Raises:
+        ConfigurationError: If required configuration is missing during validate().
+    """
 
     def __init__(self) -> None:
+        """Load configuration from environment variables."""
         self.discord_token = os.getenv("DISCORD_BOT_TOKEN")
         self.perspective_key = os.getenv("PERSPECTIVE_API_KEY")
         self.reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
@@ -47,7 +111,14 @@ class BotConfig:
         self.log_channel_id = self._parse_log_channel()
 
     def _parse_admin_ids(self) -> set[int]:
-        """Parse admin user IDs from environment."""
+        """Parse admin user IDs from ADMIN_USER_IDS environment variable.
+
+        Expected format: Comma-separated Discord user IDs (integers).
+        Example: "123456789,987654321"
+
+        Returns:
+            Set of integer user IDs. Empty set if not configured or invalid.
+        """
         admin_ids_str = os.getenv("ADMIN_USER_IDS", "")
         if not admin_ids_str:
             return set()
@@ -58,7 +129,11 @@ class BotConfig:
             return set()
 
     def _parse_log_channel(self) -> int | None:
-        """Parse log channel ID from environment."""
+        """Parse log channel ID from LOG_CHANNEL_ID environment variable.
+
+        Returns:
+            Integer channel ID if configured and valid, None otherwise.
+        """
         channel_id = os.getenv("LOG_CHANNEL_ID")
         if not channel_id:
             return None
@@ -69,7 +144,14 @@ class BotConfig:
             return None
 
     def validate(self) -> None:
-        """Validate required configuration."""
+        """Validate that required configuration is present.
+
+        Checks that DISCORD_BOT_TOKEN is set. Logs warnings for optional
+        configuration that affects available features (Reddit scanning, etc.).
+
+        Raises:
+            ConfigurationError: If DISCORD_BOT_TOKEN is not set.
+        """
         if not self.discord_token:
             raise ConfigurationError("DISCORD_BOT_TOKEN is required")
 
@@ -80,7 +162,11 @@ class BotConfig:
             log.warning("Reddit credentials not set - Reddit scanning disabled")
 
     def has_reddit_config(self) -> bool:
-        """Check if Reddit configuration is complete."""
+        """Check if Reddit scanning is fully configured.
+
+        Returns:
+            True if Perspective API key and Reddit credentials are all set.
+        """
         return bool(
             self.perspective_key
             and self.reddit_client_id
@@ -99,7 +185,11 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 @bot.event
 async def on_ready() -> None:
-    """Called when bot is ready."""
+    """Called when bot successfully connects to Discord.
+
+    Logs bot information, creates the scans directory, and reports
+    which scanning features are available based on configuration.
+    """
     log.info("Bot ready: %s (ID: %s)", bot.user.name, bot.user.id)
     log.info("Connected to %d guilds", len(bot.guilds))
 
@@ -114,7 +204,19 @@ async def on_ready() -> None:
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error: Exception) -> None:
-    """Global error handler for commands."""
+    """Global error handler for all bot commands.
+
+    Handles common command errors with user-friendly messages:
+    - Permission errors
+    - Missing/invalid arguments
+    - Cooldown violations
+
+    Other errors are logged and shown as generic error messages.
+
+    Args:
+        ctx: Command context containing message and author info.
+        error: Exception raised during command execution.
+    """
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ You don't have permission to use this command.")
     elif isinstance(error, commands.MissingRequiredArgument):
@@ -132,15 +234,33 @@ async def on_command_error(ctx: commands.Context, error: Exception) -> None:
 @commands.has_permissions(moderate_members=True)
 @commands.cooldown(1, 30, commands.BucketType.user)  # 1 scan per 30s per user
 async def scan_user(ctx: commands.Context, username: str, mode: str = "both") -> None:
-    """Scan a user across platforms.
+    """Scan a user across platforms for moderation purposes.
 
-    Usage: !scan <username> [sherlock|reddit|both]
+    Executes Reddit toxicity analysis and/or Sherlock OSINT username
+    enumeration based on the mode parameter. Results are displayed in
+    a rich embed with summary information.
+
+    Permissions: Requires "Moderate Members" permission.
+    Cooldown: 1 scan per 30 seconds per user.
+    Timeout: Scans timeout after 5 minutes.
+
+    Args:
+        ctx: Discord command context.
+        username: Target username to scan (max 50 characters).
+        mode: Scan mode - "sherlock", "reddit", or "both" (default: "both").
+
+    Usage:
+        !scan <username> [sherlock|reddit|both]
 
     Examples:
-        !scan johndoe
-        !scan johndoe sherlock
-        !scan johndoe reddit
-        !scan johndoe both
+        !scan johndoe              # Both Reddit and Sherlock
+        !scan johndoe sherlock     # OSINT only
+        !scan johndoe reddit       # Toxicity analysis only
+        !scan johndoe both         # Explicit both modes
+
+    Scan results are saved to the ./scans directory and include:
+    - Reddit: CSV file with flagged toxic content
+    - Sherlock: JSON file with found social media accounts
     """
     # Validate inputs
     if len(username) > MAX_SCAN_LENGTH:
@@ -267,9 +387,22 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
 
 @bot.command(name="health")
 async def check_health(ctx: commands.Context) -> None:
-    """Check bot health and API status.
+    """Check bot health, latency, and API service availability.
 
-    Usage: !health
+    Displays an embed with:
+    - Bot latency and connection status
+    - Number of connected guilds and users
+    - Availability of Sherlock, Perspective API, and Reddit API
+    - Scans directory location
+
+    This command can be used by any user to verify the bot is working
+    and which scanning features are available.
+
+    Args:
+        ctx: Discord command context.
+
+    Usage:
+        !health
     """
     embed = discord.Embed(
         title="Bot Health Check",
@@ -317,9 +450,16 @@ async def check_health(ctx: commands.Context) -> None:
 
 @bot.command(name="help")
 async def show_help(ctx: commands.Context) -> None:
-    """Show bot help and usage information.
+    """Display bot help and command usage information.
 
-    Usage: !help
+    Shows an embed with all available commands, their descriptions,
+    requirements, and usage examples.
+
+    Args:
+        ctx: Discord command context.
+
+    Usage:
+        !help
     """
     embed = discord.Embed(
         title="Account Scanner Bot - Help",
@@ -357,9 +497,20 @@ async def show_help(ctx: commands.Context) -> None:
 @bot.command(name="shutdown")
 @commands.check(lambda ctx: ctx.author.id in config.admin_user_ids)
 async def shutdown_bot(ctx: commands.Context) -> None:
-    """Shutdown the bot (admin only).
+    """Gracefully shutdown the bot (admin only).
 
-    Usage: !shutdown
+    This command closes the bot connection and exits the process.
+    Only users listed in ADMIN_USER_IDS can execute this command.
+
+    The shutdown is logged with the requesting user's information.
+
+    Args:
+        ctx: Discord command context.
+
+    Usage:
+        !shutdown
+
+    Permissions: Requires user ID to be in ADMIN_USER_IDS environment variable.
     """
     log.warning("Shutdown requested by %s (ID: %s)", ctx.author.name, ctx.author.id)
     await ctx.send("👋 Shutting down...")
@@ -368,7 +519,22 @@ async def shutdown_bot(ctx: commands.Context) -> None:
 
 
 def main() -> None:
-    """Bot entry point."""
+    """Bot entry point with comprehensive error handling.
+
+    Validates configuration, installs uvloop for performance, and starts
+    the Discord bot. Handles various failure modes with specific error
+    messages and appropriate exit codes.
+
+    Exit codes:
+        0: Clean shutdown
+        1: Configuration error, login failure, or fatal error
+
+    Common errors handled:
+        - Invalid/missing Discord token
+        - Missing Message Content Intent in Developer Portal
+        - Discord API HTTP errors
+        - Network connectivity issues
+    """
     # Validate configuration
     try:
         config.validate()
