@@ -199,12 +199,11 @@ moderation-scanner/
 ├── test-scanner.py       # Test suite
 ├── fly.toml              # Fly.io deployment config
 ├── Dockerfile            # Container image
-└── docs/
-    ├── INSTALL.md        # Installation guide
-    ├── DEPLOYMENT.md     # Cloud deployment guide
-    ├── PRODUCTION.md     # Production best practices
-    ├── QUICKSTART.md     # 5-minute quick start
-    └── CONTRIBUTING.md   # Development guide
+├── INSTALL.md            # Installation guide
+├── DEPLOYMENT.md         # Cloud deployment guide
+├── PRODUCTION.md         # Production best practices
+├── QUICKSTART.md         # 5-minute quick start
+└── CONTRIBUTING.md       # Development guide
 ```
 
 ### Component Overview
