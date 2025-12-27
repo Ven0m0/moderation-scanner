@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  discord-bot:
+    build: .
+    restart: unless-stopped
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - PERSPECTIVE_API_KEY=${PERSPECTIVE_API_KEY}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
+      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT}
+      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
+    volumes:
+      - ./scans:/app/scans
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
