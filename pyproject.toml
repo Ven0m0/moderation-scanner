@@ -20,16 +20,16 @@ dependencies = [
   "orjson>=3.11.0,<4.0.0",  # Major version lock due to API stability
   "asyncpraw>=7.8.0,<8.0.0",  # Major version lock
   "uvloop~=0.22.0; platform_system != 'Windows'",  # Allow patch updates
-  "aiofiles~=24.1",  # Allow minor updates in 24.x
+  "aiofiles~=25.1",  # Allow minor updates in 24.x
   "py-cord>=2.6.0,<3.0.0",  # Discord bot framework - major version lock
 ]
 
 [project.optional-dependencies]
 dev = [
   "ruff~=0.14.10",
-  "mypy~=1.14.0",
+  "mypy~=1.19.1",
   "pytest~=8.3.0",
-  "pytest-asyncio~=0.24.0",
+  "pytest-asyncio~=1.3.0",
   "pip-audit>=2.10.0",  # Security vulnerability scanning
   "types-aiofiles>=24.0.0",  # Type stubs for mypy
 ]

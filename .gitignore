@@ -66,3 +66,7 @@ Thumbs.db
 *.tmp
 *.log
 *.bak
+
+.env
+.pem
+secrets/
