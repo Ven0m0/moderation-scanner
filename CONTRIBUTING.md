@@ -214,6 +214,7 @@ Example test:
 
 ```python
 import pytest
+import time
 from account_scanner import ScanConfig, RateLimiter
 
 @pytest.mark.asyncio
