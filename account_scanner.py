@@ -484,8 +484,8 @@ class RedditScanner:
                     )
                 )
             return items if items else None
-        except AsyncPrawcoreException as e:
-            log.error("Reddit API Error: %s", e)
+        except AsyncPrawcoreException:
+            log.exception("Reddit API Error")
         except (OSError, ValueError, RuntimeError) as e:
             log.error("Reddit fetch error: %s", e)
         finally:
