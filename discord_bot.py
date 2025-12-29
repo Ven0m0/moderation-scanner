@@ -6,8 +6,9 @@ import logging
 import os
 import re
 import sys
+from collections import deque
 from pathlib import Path
-from typing import Final
+from typing import Deque, Final, Tuple
 
 import discord
 import uvloop
@@ -15,7 +16,7 @@ from discord import app_commands
 from discord.ext import commands
 
 # Fix 2: Import RateLimiter to create a global instance
-from account_scanner import ScanConfig, ScannerAPI, SherlockScanner, RateLimiter
+from account_scanner import ScanConfig, ScannerAPI, SherlockScanner, RateLimiter, close_http_client
 
 # Logging configuration
 logging.basicConfig(
@@ -257,23 +258,29 @@ async def _send_detailed_results(ctx, username, results) -> None:
     """Helper to send detailed text results."""
     # Sherlock results
     if results.get("sherlock"):
-        sherlock_text = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
-        for account in results["sherlock"]:
-            sherlock_text += f"{account['platform']}: {account['url']}\n"
-        sherlock_text += "```"
+        # Use list and join for better performance
+        lines = [f"{account['platform']}: {account['url']}" for account in results["sherlock"]]
+        sherlock_text = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n" + "\n".join(lines) + "\n```"
 
         if len(sherlock_text) > 1900:
             chunks = []
-            current_chunk = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
-            for account in results["sherlock"]:
-                line = f"{account['platform']}: {account['url']}\n"
-                if len(current_chunk) + len(line) + 3 > 1900:
-                    current_chunk += "```"
-                    chunks.append(current_chunk)
-                    current_chunk = "```\n"
-                current_chunk += line
-            current_chunk += "```"
-            chunks.append(current_chunk)
+            chunk_lines = [f"**🔎 Sherlock OSINT Results for {username}:**\n```"]
+            current_length = len(chunk_lines[0])
+
+            for line in lines:
+                line_with_newline = line + "\n"
+                if current_length + len(line_with_newline) + 3 > 1900:  # 3 for closing ```
+                    chunk_lines.append("```")
+                    chunks.append("\n".join(chunk_lines))
+                    chunk_lines = ["```", line]
+                    current_length = len("```\n") + len(line)
+                else:
+                    chunk_lines.append(line)
+                    current_length += len(line_with_newline)
+
+            chunk_lines.append("```")
+            chunks.append("\n".join(chunk_lines))
+
             for chunk in chunks:
                 if isinstance(ctx, discord.Interaction):
                     await ctx.followup.send(chunk)
@@ -287,29 +294,39 @@ async def _send_detailed_results(ctx, username, results) -> None:
 
     # Reddit results
     if results.get("reddit"):
-        reddit_text = f"**🤖 Reddit Toxicity Analysis for {username}:**\n"
+        reddit_chunks = []
+        current_lines = [f"**🤖 Reddit Toxicity Analysis for {username}:**"]
+        current_length = len(current_lines[0]) + 1  # +1 for newline
+
         for item in results["reddit"]:
-            item_text = (
-                f"```\n"
-                f"Time: {item['timestamp']}\n"
-                f"Type: {item['type']} | Subreddit: r/{item['subreddit']}\n"
+            content_preview = item['content'][:200] + ('...' if len(item['content']) > 200 else '')
+            item_lines = [
+                "```",
+                f"Time: {item['timestamp']}",
+                f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
                 f"Toxicity: {item['TOXICITY']:.2f} | Insult: {item['INSULT']:.2f} | "
-                f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}\n"
-                f"Content: {item['content'][:200]}{'...' if len(item['content']) > 200 else ''}\n"
-                f"```\n"
-            )
-            if len(reddit_text) + len(item_text) > 1900:
-                if isinstance(ctx, discord.Interaction):
-                    await ctx.followup.send(reddit_text)
-                else:
-                    await ctx.send(reddit_text)
-                reddit_text = ""
-            reddit_text += item_text
-        if reddit_text:
-            if isinstance(ctx, discord.Interaction):
-                await ctx.followup.send(reddit_text)
+                f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}",
+                f"Content: {content_preview}",
+                "```"
+            ]
+            item_text = "\n".join(item_lines) + "\n"
+
+            if current_length + len(item_text) > 1900:
+                reddit_chunks.append("\n".join(current_lines))
+                current_lines = [item_text.rstrip()]
+                current_length = len(current_lines[0])
             else:
-                await ctx.send(reddit_text)
+                current_lines.append(item_text.rstrip())
+                current_length += len(item_text)
+
+        if current_lines:
+            reddit_chunks.append("\n".join(current_lines))
+
+        for chunk in reddit_chunks:
+            if isinstance(ctx, discord.Interaction):
+                await ctx.followup.send(chunk)
+            else:
+                await ctx.send(chunk)
 
 
 @bot.command(name="health")
@@ -372,20 +389,24 @@ async def shutdown_bot(ctx: commands.Context) -> None:
 # SLASH COMMANDS (Application Commands)
 # ============================================================================
 
+# Performance-optimized cooldown system using deque for O(1) cleanup
 _scan_cooldowns: dict[int, float] = {}
+_cooldown_queue: Deque[Tuple[float, int]] = deque()
 COOLDOWN_SECONDS = 30
 
 
 def check_cooldown(user_id: int) -> tuple[bool, float]:
-    """Check if user is on cooldown and perform cleanup if needed."""
+    """Check if user is on cooldown with lazy cleanup."""
     now = asyncio.get_event_loop().time()
-    
-    # FIX 3: Memory leak fix - Cleanup old cooldowns if dict gets too big
-    if len(_scan_cooldowns) > 1000:
-        expired = [uid for uid, ts in _scan_cooldowns.items() if now - ts >= COOLDOWN_SECONDS]
-        for uid in expired:
+
+    # Lazy cleanup: Remove expired entries from front of queue (O(1) amortized)
+    while _cooldown_queue and now - _cooldown_queue[0][0] >= COOLDOWN_SECONDS:
+        ts, uid = _cooldown_queue.popleft()
+        # Only delete if this is the most recent cooldown for this user
+        if uid in _scan_cooldowns and _scan_cooldowns[uid] == ts:
             del _scan_cooldowns[uid]
 
+    # Check cooldown
     if user_id in _scan_cooldowns:
         elapsed = now - _scan_cooldowns[user_id]
         if elapsed < COOLDOWN_SECONDS:
@@ -394,7 +415,10 @@ def check_cooldown(user_id: int) -> tuple[bool, float]:
 
 
 def update_cooldown(user_id: int) -> None:
-    _scan_cooldowns[user_id] = asyncio.get_event_loop().time()
+    """Update cooldown timestamp for user."""
+    now = asyncio.get_event_loop().time()
+    _scan_cooldowns[user_id] = now
+    _cooldown_queue.append((now, user_id))
 
 
 @bot.tree.command(
@@ -634,6 +658,13 @@ def main() -> None:
         try:
             loop = asyncio.get_event_loop()
             if not loop.is_closed():
+                # Close shared HTTP client
+                try:
+                    loop.run_until_complete(close_http_client())
+                    log.info("Closed shared HTTP client.")
+                except Exception as e:
+                    log.warning("Error closing HTTP client: %s", e)
+
                 pending = asyncio.all_tasks(loop)
                 for task in pending:
                     task.cancel()
