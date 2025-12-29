@@ -33,6 +33,7 @@ import httpx
 import orjson
 import uvloop
 from asyncpraw import Reddit
+from asyncpraw.models import Redditor
 from asyncprawcore import AsyncPrawcoreException
 
 # Constants
@@ -48,6 +49,64 @@ HTTP_OK: Final = 200
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
+
+# Shared HTTP client for connection reuse (performance optimization)
+_http_client: httpx.AsyncClient | None = None
+_http_client_lock = asyncio.Lock()
+
+# TTL-based cache for scan results (performance optimization)
+_scan_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_cache_lock = asyncio.Lock()
+CACHE_TTL: Final = 900  # 15 minutes
+CACHE_MAX_SIZE: Final = 100
+
+
+async def get_http_client() -> httpx.AsyncClient:
+    """Get or create shared HTTP client for connection reuse."""
+    global _http_client
+    async with _http_client_lock:
+        if _http_client is None or _http_client.is_closed:
+            _http_client = httpx.AsyncClient(
+                http2=True,
+                limits=HTTP2_LIMITS,
+                headers={"Content-Type": "application/json"},
+                timeout=DEFAULT_TIMEOUT,
+            )
+    return _http_client
+
+
+async def close_http_client() -> None:
+    """Close the shared HTTP client."""
+    global _http_client
+    async with _http_client_lock:
+        if _http_client is not None and not _http_client.is_closed:
+            await _http_client.aclose()
+            _http_client = None
+
+
+async def get_cached_result(cache_key: str) -> dict[str, Any] | None:
+    """Get cached scan result if not expired."""
+    async with _cache_lock:
+        if cache_key in _scan_cache:
+            timestamp, result = _scan_cache[cache_key]
+            if time.monotonic() - timestamp < CACHE_TTL:
+                log.info("📦 Cache hit for '%s'", cache_key)
+                return result
+            else:
+                # Expired, remove it
+                del _scan_cache[cache_key]
+    return None
+
+
+async def set_cached_result(cache_key: str, result: dict[str, Any]) -> None:
+    """Cache scan result with TTL."""
+    async with _cache_lock:
+        # Simple LRU: if cache is full, remove oldest entry
+        if len(_scan_cache) >= CACHE_MAX_SIZE:
+            oldest_key = min(_scan_cache.keys(), key=lambda k: _scan_cache[k][0])
+            del _scan_cache[oldest_key]
+        _scan_cache[cache_key] = (time.monotonic(), result)
+        log.info("📦 Cached result for '%s'", cache_key)
 
 
 class RateLimiter:
@@ -310,8 +369,31 @@ class RedditScanner:
             )
         return {}
 
+    async def _fetch_comments(self, user: Redditor) -> list[tuple[str, str, str, float]]:
+        """Fetch Reddit comments for a user."""
+        items: list[tuple[str, str, str, float]] = []
+        async for c in user.comments.new(limit=self.config.comments):
+            items.append(
+                ("comment", c.subreddit.display_name, c.body, c.created_utc)
+            )
+        return items
+
+    async def _fetch_posts(self, user: Redditor) -> list[tuple[str, str, str, float]]:
+        """Fetch Reddit posts for a user."""
+        items: list[tuple[str, str, str, float]] = []
+        async for s in user.submissions.new(limit=self.config.posts):
+            items.append(
+                (
+                    "post",
+                    s.subreddit.display_name,
+                    f"{s.title}\n{s.selftext}",
+                    s.created_utc,
+                )
+            )
+        return items
+
     async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
-        """Fetch Reddit comments and posts for the configured user."""
+        """Fetch Reddit comments and posts for the configured user (concurrently)."""
         cfg = self.config
         log.info("🤖 Reddit: Fetching content for u/%s.. .", cfg.username)
         reddit: Reddit | None = None
@@ -323,20 +405,15 @@ class RedditScanner:
                 requestor_kwargs={"timeout": DEFAULT_TIMEOUT},
             )
             user = await reddit.redditor(cfg.username)
-            items: list[tuple[str, str, str, float]] = []
-            async for c in user.comments.new(limit=cfg.comments):
-                items.append(
-                    ("comment", c.subreddit.display_name, c.body, c.created_utc)
-                )
-            async for s in user.submissions.new(limit=cfg.posts):
-                items.append(
-                    (
-                        "post",
-                        s.subreddit.display_name,
-                        f"{s.title}\n{s.selftext}",
-                        s.created_utc,
-                    )
-                )
+
+            # Fetch comments and posts concurrently for better performance
+            comments, posts = await asyncio.gather(
+                self._fetch_comments(user),
+                self._fetch_posts(user),
+                return_exceptions=False
+            )
+
+            items = comments + posts
             return items if items else None
         except AsyncPrawcoreException:
             log.exception("Reddit API Error")
@@ -354,18 +431,14 @@ class RedditScanner:
             log.info("🤖 Reddit: No items to analyze")
             return None
         log.info("🤖 Reddit:  Analyzing %d items...", len(items))
-        headers = {"Content-Type": "application/json"}
-        async with httpx.AsyncClient(
-            http2=True,
-            limits=HTTP2_LIMITS,
-            headers=headers,
-        ) as client:
-            results = await asyncio.gather(
-                *[
-                    self._check_toxicity(client, text, self.config.api_key or "")
-                    for _, _, text, _ in items
-                ]
-            )
+        # Use shared HTTP client for connection reuse
+        client = await get_http_client()
+        results = await asyncio.gather(
+            *[
+                self._check_toxicity(client, text, self.config.api_key or "")
+                for _, _, text, _ in items
+            ]
+        )
         # Filter flagged content
         flagged: list[dict[str, Any]] = []
         for (kind, sub, text, ts), scores in zip(items, results, strict=True):
@@ -413,6 +486,14 @@ class ScannerAPI:
         config: ScanConfig,
     ) -> dict[str, Any]:
         """Run account scan and return structured results."""
+        # Create cache key based on username and mode
+        cache_key = f"{config.username}:{config.mode}"
+
+        # Check cache first
+        cached_result = await get_cached_result(cache_key)
+        if cached_result is not None:
+            return cached_result
+
         results: dict[str, Any] = {
             "username": config.username, # Use sanitized username from config
             "sherlock": None,
@@ -454,6 +535,10 @@ class ScannerAPI:
                 results["errors"].append(f"{scan_type} failed: {result}")
             else:
                 results[scan_type] = result
+
+        # Cache the results before returning
+        await set_cached_result(cache_key, results)
+
         return results
 
 
@@ -538,6 +623,12 @@ def main() -> None:
     except KeyboardInterrupt:
         log.info("\nInterrupted by user")
         sys.exit(130)
+    finally:
+        # Clean up shared HTTP client
+        try:
+            asyncio.run(close_http_client())
+        except RuntimeError:
+            pass  # Event loop already closed
 
 
 if __name__ == "__main__":
