@@ -1,6 +1,14 @@
 # Multi-stage build for optimized production image
 FROM python:3.11-slim AS builder
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=0 \
+    PYTHONOPTIMIZE=1 \
+    PYTHONFAULTHANDLER=0 \
+    PYTHONIOENCODING=utf-8 \
+    PYTHONMALLOCSTATS=0
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
@@ -53,8 +61,13 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=0 \
+    PYTHONOPTIMIZE=1 \
+    PYTHONFAULTHANDLER=0 \
+    PYTHONIOENCODING=utf-8 \
+    PYTHONMALLOCSTATS=0 \
     PATH="/home/botuser/.local/bin:$PATH"
 
 # Run the Discord bot
