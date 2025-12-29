@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONOPTIMIZE=1 \
-    LC_ALL=C.UTF-8 \
+    LC_ALL=C \
     DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
@@ -62,7 +62,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONOPTIMIZE=1 \
-    LC_ALL=C.UTF-8 \
+    LC_ALL=C \
     PATH="/home/botuser/.local/bin:$PATH"
 
 # Run the Discord bot
