@@ -78,6 +78,9 @@ class BotConfig:
 
     def validate(self) -> None:
         if not self.discord_token:
+            log.error("DISCORD_BOT_TOKEN environment variable is not set!")
+            log.error("Please set DISCORD_BOT_TOKEN in your Fly.io secrets:")
+            log.error("  fly secrets set DISCORD_BOT_TOKEN=your_token_here -a moderation-scanner")
             raise ConfigurationError("DISCORD_BOT_TOKEN is required")
         if not self.perspective_key:
             log.warning(
@@ -103,18 +106,44 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 @bot.event
 async def on_ready() -> None:
+    log.info("=" * 60)
     log.info("Bot ready: %s (ID: %s)", bot.user.name, bot.user.id)
     log.info("Connected to %d guilds", len(bot.guilds))
+
+    # Create scans directory
     SCANS_DIR.mkdir(exist_ok=True)
     log.info("Scans directory: %s", SCANS_DIR.absolute())
+
+    # Sync slash commands
     try:
         log.info("Syncing slash commands...")
         synced = await bot.tree.sync()
-        log.info("Synced %d slash command(s)", len(synced))
-    except (discord.HTTPException, discord.DiscordException) as e:
-        log.error("Failed to sync commands: %s", e)
+        log.info("✅ Synced %d slash command(s): %s", len(synced), [cmd.name for cmd in synced])
+    except discord.HTTPException as e:
+        log.error("❌ Failed to sync commands (HTTP %s): %s", e.status, e.text)
+        log.error("This may be due to invalid application configuration")
+    except discord.DiscordException as e:
+        log.error("❌ Failed to sync commands: %s", e)
+
+    # Log service availability
     log.info("Sherlock available: %s", SherlockScanner.available())
     log.info("Reddit scanning available: %s", config.has_reddit_config())
+
+    # Log command setup
+    log.info("Prefix commands enabled: !scan, !health, !help, !shutdown")
+    log.info("Slash commands enabled: /scan, /health, /help")
+    log.info("=" * 60)
+
+
+@bot.event
+async def on_message(message: discord.Message) -> None:
+    """Process messages for prefix commands."""
+    # Ignore bot messages
+    if message.author.bot:
+        return
+
+    # Process commands
+    await bot.process_commands(message)
 
 
 @bot.event
@@ -127,6 +156,8 @@ async def on_command_error(ctx: commands.Context, error: Exception) -> None:
         await ctx.send(f"❌ Invalid argument: {error}")
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send(f"⏱️ Cooldown: try again in {error.retry_after:.1f}s")
+    elif isinstance(error, commands.CheckFailure):
+        await ctx.send("❌ You don't have permission to use this command.")
     else:
         log.error("Command error in %s: %s", ctx.command, error, exc_info=error)
         await ctx.send("❌ An error occurred while processing your command.")
@@ -623,38 +654,59 @@ async def help_slash(interaction: discord.Interaction) -> None:
 
 
 def main() -> None:
+    # Validate configuration
     try:
         config.validate()
     except ConfigurationError as e:
         log.error("Configuration error: %s", e)
         sys.exit(1)
 
+    # Install uvloop for better performance
     try:
         uvloop.install()
         log.info("uvloop installed for better async performance")
     except (ImportError, RuntimeError) as e:
         log.warning("Failed to install uvloop, using default event loop: %s", e)
 
+    # Log startup information
+    log.info("=" * 60)
+    log.info("Discord Account Scanner Bot v1.3.0")
+    log.info("=" * 60)
+    log.info("Configuration:")
+    log.info("  - Discord Token: %s", "✅ Set" if config.discord_token else "❌ Missing")
+    log.info("  - Perspective API: %s", "✅ Set" if config.perspective_key else "❌ Missing")
+    log.info("  - Reddit API: %s", "✅ Set" if config.has_reddit_config() else "❌ Missing")
+    log.info("  - Admin Users: %s", len(config.admin_user_ids) if config.admin_user_ids else "None")
+    log.info("  - Message Content Intent: %s", "✅ Enabled" if intents.message_content else "❌ Disabled")
+    log.info("=" * 60)
+
+    # Start the bot
     log.info("Starting Discord bot...")
     try:
-        bot.run(config.discord_token)
+        bot.run(config.discord_token, log_handler=None)
     except discord.LoginFailure as e:
-        log.error("Discord login failed - invalid token: %s", e)
+        log.error("❌ Discord login failed - invalid token: %s", e)
+        log.error("Check your DISCORD_BOT_TOKEN environment variable")
         sys.exit(1)
     except discord.PrivilegedIntentsRequired as e:
-        log.error("Missing required Discord intents: %s", e)
+        log.error("❌ Missing required Discord intents: %s", e)
+        log.error("Enable MESSAGE CONTENT intent in Discord Developer Portal:")
+        log.error("  1. Go to https://discord.com/developers/applications")
+        log.error("  2. Select your application")
+        log.error("  3. Go to 'Bot' section")
+        log.error("  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents")
         sys.exit(1)
     except discord.HTTPException as e:
-        log.error("Discord HTTP error: %s (status: %s)", e.text, e.status)
+        log.error("❌ Discord HTTP error: %s (status: %s)", e.text, e.status)
         sys.exit(1)
     except KeyboardInterrupt:
         log.info("Interrupted by user")
         sys.exit(0)
     except (OSError, RuntimeError, ValueError):
-        log.exception("Fatal error")
+        log.exception("❌ Fatal error occurred")
         sys.exit(1)
     finally:
-        log.info("Cleaning up tasks.")
+        log.info("Cleaning up tasks...")
         try:
             loop = asyncio.get_event_loop()
             if not loop.is_closed():

@@ -231,12 +231,13 @@ fly apps restart your-app-name
 
 ## Scaling & Optimization
 
-### Current Free Tier Configuration
+### Current Configuration
 
-The `fly.toml` is configured for free tier:
+The `fly.toml` is configured with:
 - **CPU**: 1 shared CPU
-- **Memory**: 256MB RAM
+- **Memory**: 512MB RAM (increased from 256MB to prevent crashes)
 - **Regions**: 1 instance
+- **Restart Policy**: On failure, max 5 retries
 
 ### Scale Up (if needed)
 
@@ -266,18 +267,64 @@ fly scale show
 
 ## Troubleshooting
 
+### Bot Crashes with "DISCORD_BOT_TOKEN is required"
+
+**Cause**: Missing Discord bot token environment variable.
+
+**Solution**:
+```bash
+fly secrets set DISCORD_BOT_TOKEN="your_discord_token_here" -a moderation-scanner
+```
+
+### Bot Crashes with "Missing required Discord intents"
+
+**Cause**: MESSAGE CONTENT intent not enabled in Discord Developer Portal.
+
+**Solution**:
+1. Go to https://discord.com/developers/applications
+2. Select your application
+3. Go to **Bot** section
+4. Scroll to **Privileged Gateway Intents**
+5. Enable **MESSAGE CONTENT INTENT** ✅
+6. Save changes
+7. Restart bot: `fly apps restart -a moderation-scanner`
+
+### Slash Commands Don't Appear
+
+**Causes and Solutions**:
+
+1. **Commands not synced**: Wait 5-10 minutes for Discord to propagate slash commands globally
+2. **Bot missing scopes**: Re-invite bot with `applications.commands` scope
+3. **Sync failed**: Check logs for errors: `fly logs -a moderation-scanner`
+
+### Prefix Commands (!scan) Don't Work
+
+**Cause**: MESSAGE CONTENT intent not enabled (see above).
+
+**Additional checks**:
+1. Ensure bot has "Read Messages" permission in the channel
+2. Check logs for command errors: `fly logs -a moderation-scanner`
+3. Try `/help` slash command instead
+
 ### Bot Not Connecting to Discord
 
-1. Check logs: `fly logs`
-2. Verify token: `fly secrets list`
+1. Check logs: `fly logs -a moderation-scanner`
+2. Verify token: `fly secrets list -a moderation-scanner`
 3. Ensure token is valid in Discord Developer Portal
-4. Restart: `fly apps restart`
+4. Restart: `fly apps restart -a moderation-scanner`
 
 ### Out of Memory Errors
 
+The bot is now configured with 512MB RAM by default. If you still see OOM errors:
+
 ```bash
-# Increase memory to 512MB
-fly scale memory 512
+# Increase memory to 1GB
+fly scale memory 1024 -a moderation-scanner
+```
+
+Check current memory usage:
+```bash
+fly vm status -a moderation-scanner
 ```
 
 ### Bot Keeps Crashing
