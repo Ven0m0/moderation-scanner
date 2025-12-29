@@ -76,6 +76,7 @@ DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
 ATTRIBUTES: Final = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+HTTP_OK: Final = 200
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -225,14 +226,15 @@ class SherlockScanner:
         """
         seen: set[tuple[str, str]] = set()
         results: list[dict[str, Any]] = []
-        for line in text.splitlines():
-            line = line.strip()
-            if "://" not in line or ":  " not in line:
+        for raw_line in text.splitlines():
+            stripped_line = raw_line.strip()
+            if "://" not in stripped_line or ":  " not in stripped_line:
                 continue
-            if "]:  " in line:
-                _, line = line.split("]: ", 1)
-            parts = line.split(": ", 1)
-            if len(parts) != 2:
+            # Remove timestamp prefix if present
+            if "]:  " in stripped_line:
+                _, stripped_line = stripped_line.split("]: ", 1)
+            parts = stripped_line.split(": ", 1)
+            if len(parts) < 2:
                 continue
             platform, url = parts
             url = url.strip()
@@ -351,8 +353,14 @@ class SherlockScanner:
             else:
                 log.info("🔎 Sherlock: no claimed accounts found")
             return results
-        except Exception as e:
-            log.error("🔎 Sherlock error: %s", e, exc_info=verbose)
+        except OSError:
+            log.exception("🔎 Sherlock OS error")
+            return []
+        except asyncio.CancelledError:
+            log.warning("🔎 Sherlock: scan cancelled")
+            raise
+        except (ValueError, RuntimeError):
+            log.exception("🔎 Sherlock error")
             return []
 
 
@@ -420,16 +428,18 @@ class RedditScanner:
                 content=orjson.dumps(payload),
                 timeout=DEFAULT_TIMEOUT,
             )
-            if resp.status_code == 200:
+            if resp.status_code == HTTP_OK:
                 data = orjson.loads(resp.content)
                 return {
                     k: v["summaryScore"]["value"]
                     for k, v in data.get("attributeScores", {}).items()
                 }
-        except Exception as exc:
-            # Swallowing the exception is intentional: failure yields no toxicity data.
-            logging.warning(
-                "Perspective API request failed; returning empty scores: %s", exc
+        except httpx.HTTPError as exc:
+            log.warning("Perspective API HTTP error; returning empty scores: %s", exc)
+        except (orjson.JSONDecodeError, KeyError, TypeError) as exc:
+            log.warning(
+                "Perspective API response parsing failed; returning empty scores: %s",
+                exc,
             )
         return {}
 
@@ -474,10 +484,10 @@ class RedditScanner:
                     )
                 )
             return items if items else None
-        except AsyncPrawcoreException as e:
-            log.error("Reddit API Error: %s", e)
-        except Exception as e:
-            log.error("Reddit fetch error: %s", e)
+        except AsyncPrawcoreException:
+            log.exception("Reddit API Error")
+        except (OSError, ValueError, RuntimeError):
+            log.exception("Reddit fetch error")
         finally:
             if reddit:
                 await reddit.close()

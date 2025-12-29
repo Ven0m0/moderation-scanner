@@ -5,13 +5,15 @@ import pytest
 
 from account_scanner import RateLimiter, ScanConfig, SherlockScanner
 
+DEFAULT_THRESHOLD = 0.7
+
 
 def test_config_validation() -> None:
     """Test config defaults."""
     cfg = ScanConfig(username="test")
     assert cfg.username == "test"
     assert cfg.mode == "both"
-    assert cfg.threshold == 0.7
+    assert cfg.threshold == DEFAULT_THRESHOLD
 
 
 def test_rate_limiter_init() -> None:
@@ -27,7 +29,7 @@ def test_sherlock_available() -> None:
 
 
 @pytest.mark.parametrize(
-    "status,expected",
+    ("status", "expected"),
     [
         ("Claimed", True),
         ("Available", False),
@@ -39,4 +41,4 @@ def test_sherlock_available() -> None:
 )
 def test_sherlock_status(status: str, expected: bool) -> None:
     """Test Sherlock status detection."""
-    assert SherlockScanner._is_claimed(status) == expected
+    assert SherlockScanner._is_claimed(status) == expected  # noqa: SLF001
