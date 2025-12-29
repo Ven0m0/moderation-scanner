@@ -824,8 +824,8 @@ async def scan_slash(
             await interaction.edit_original_response(
                 content="❌ Discord API error occurred. Please try again."
             )
-        except discord.HTTPException:
-            log.error("Failed to send error message to user")
+        except discord.HTTPException as exc:
+            log.error("Failed to send error message to user: %s", exc)
     except (OSError, ValueError, RuntimeError):
         log.exception("Scan error for user '%s'", username)
         await interaction.edit_original_response(
