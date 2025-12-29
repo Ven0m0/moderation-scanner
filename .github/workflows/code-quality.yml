@@ -1,0 +1,86 @@
+name: Code Quality
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-quality.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-check:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Cache tool directories
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ruff
+            ~/.cache/mypy
+          key: quality-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            quality-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff check
+        id: ruff
+        run: |
+          echo "## Ruff Linting Results" >> $GITHUB_STEP_SUMMARY
+          ruff check . --output-format=github --statistics || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run Ruff format check
+        id: format
+        run: |
+          echo "## Ruff Format Check" >> $GITHUB_STEP_SUMMARY
+          ruff format --check --diff . || echo "format_issues=true" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run type check
+        id: mypy
+        run: |
+          echo "## MyPy Type Check" >> $GITHUB_STEP_SUMMARY
+          mypy account_scanner.py --show-error-codes --pretty || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Calculate code metrics
+        id: metrics
+        run: |
+          echo "## Code Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "### Lines of Code" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          find . -name '*.py' -not -path './.*' -not -path './build/*' -exec wc -l {} + | sort -n >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate quality report
+        if: always()
+        run: |
+          echo "## Summary" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code quality checks completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Review the detailed results above" >> $GITHUB_STEP_SUMMARY
+          echo "- Run \`make check\` locally to verify all checks pass" >> $GITHUB_STEP_SUMMARY
