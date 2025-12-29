@@ -289,6 +289,8 @@ class SherlockScanner:
       "sherlock", username,
       "--timeout", str(timeout),
       "--no-color",
+      "--print-found",
+      "--no-txt",
     ]
     try:
       proc = await asyncio.create_subprocess_exec(
