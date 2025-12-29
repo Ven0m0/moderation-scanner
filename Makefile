@@ -40,7 +40,7 @@ type: ## Type check with mypy
 	@echo "$(GREEN)Running type checks with mypy...$(RESET)"
 	mypy account_scanner.py --show-error-codes --pretty
 
-check: format lint type ## Run all code quality checks
+check: format-check lint type ## Run all code quality checks
 	@echo "$(GREEN)✓ All checks passed!$(RESET)"
 
 test: ## Run tests with pytest
