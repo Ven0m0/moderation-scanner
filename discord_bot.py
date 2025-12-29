@@ -443,7 +443,13 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
         log.warning("Scan timeout for user '%s'", username)
     except (discord.HTTPException, discord.DiscordException):
         log.exception("Discord error during scan for user '%s'", username)
-        await ctx.send("❌ Discord API error occurred. Please try again.")
+        try:
+            await ctx.send("❌ Discord API error occurred. Please try again.")
+        except (discord.HTTPException, discord.DiscordException):
+            log.exception(
+                "Failed to send Discord error message to context for user '%s'",
+                username,
+            )
     except (OSError, ValueError, RuntimeError):
         log.exception("Scan error for user '%s'", username)
         await status_msg.edit(
