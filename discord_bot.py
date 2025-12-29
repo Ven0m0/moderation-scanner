@@ -303,7 +303,7 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
         user_agent=config.reddit_user_agent,
         output_reddit=SCANS_DIR / f"{username}_reddit.csv",
         output_sherlock=SCANS_DIR / f"{username}_sherlock.json",
-        verbose=False,
+        verbose=True,
     )
 
     try:
