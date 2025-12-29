@@ -261,7 +261,7 @@ class SherlockScanner:
     invalid = ("not", "available", "invalid", "unchecked", "unknown")
     return not any(x in s or s.startswith(x) for x in invalid)
 
-  async def scan(self, username: str, timeout: int, verbose: bool) -> list[dict[str, Any]]:
+  async def scan(self, username: str, timeout: int, verbose: bool, output_dir: Path | None = None) -> list[dict[str, Any]]:
     """Run Sherlock OSINT scan for the given username.
 
     Executes the Sherlock command-line tool as a subprocess and parses
@@ -271,6 +271,8 @@ class SherlockScanner:
       username: Username to search for across platforms.
       timeout: Maximum seconds to wait for Sherlock to complete.
       verbose: If True, log detailed stdout/stderr from Sherlock.
+      output_dir: Optional directory to save Sherlock's txt output.
+                  If None, uses current directory.
 
     Returns:
       List of found accounts, each as a dict with:
@@ -290,8 +292,11 @@ class SherlockScanner:
       "--timeout", str(timeout),
       "--no-color",
       "--print-found",
-      "--no-txt",
     ]
+    # Specify output location if provided (prevents files in inaccessible directories)
+    if output_dir:
+      output_file = output_dir / f"{username}.txt"
+      cmd.extend(["--output", str(output_file)])
     try:
       proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -583,7 +588,8 @@ class ScannerAPI:
     if config.mode in ("sherlock", "both"):
       if SherlockScanner.available():
         scanner = SherlockScanner()
-        tasks.append(("sherlock", scanner.scan(username, config.sherlock_timeout, config.verbose)))
+        output_dir = config.output_sherlock.parent if config.output_sherlock else None
+        tasks.append(("sherlock", scanner.scan(username, config.sherlock_timeout, config.verbose, output_dir)))
       else:
         results["errors"].append("Sherlock not installed")
     if config.mode in ("reddit", "both"):
@@ -651,7 +657,8 @@ async def main_async() -> None:
   if config. mode in ("sherlock", "both"):
     if SherlockScanner.available():
       scanner = SherlockScanner()
-      tasks.append(scanner.scan(config.username, config.sherlock_timeout, config.verbose))
+      output_dir = config.output_sherlock.parent if config.output_sherlock else None
+      tasks.append(scanner.scan(config.username, config.sherlock_timeout, config.verbose, output_dir))
     else:
       log.warning("Sherlock not installed, skipping")
   if config.mode in ("reddit", "both"):
