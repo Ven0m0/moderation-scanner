@@ -7,15 +7,19 @@ module to perform Reddit toxicity analysis and Sherlock OSINT username enumerati
 
 ## Features
 
-- **!scan <username> [mode]**: Scan accounts across Reddit and/or social platforms
-- **!health**: Check bot health and API service availability
-- **!help**: Display help and usage information
-- **!shutdown**: Shutdown the bot (admin only)
+- **/scan <username> [mode]**: Scan accounts across Reddit and/or social platforms
+- **/health**: Check bot health and API service availability
+- **/help**: Display help and usage information
+- **!shutdown**: Shutdown the bot (admin only, prefix command)
 
-## Commands
+## Slash Commands
 
-All scanning commands require the "Moderate Members" permission. Rate limiting
-(1 scan per 30 seconds per user) prevents abuse.
+This bot now uses Discord's native slash commands (application commands).
+Slash commands work in both servers and DMs, and provide autocomplete and
+better UX. Rate limiting (1 scan per 30 seconds per user) prevents abuse.
+
+Legacy prefix commands (!scan, !health, !help) are still supported for
+backward compatibility.
 
 ## Configuration
 
@@ -55,6 +59,7 @@ from pathlib import Path
 from typing import Final
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 import uvloop
 
@@ -179,7 +184,7 @@ config = BotConfig()
 
 # Bot setup
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # Keep for backward compatibility with prefix commands
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 
@@ -187,8 +192,8 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 async def on_ready() -> None:
     """Called when bot successfully connects to Discord.
 
-    Logs bot information, creates the scans directory, and reports
-    which scanning features are available based on configuration.
+    Logs bot information, creates the scans directory, syncs slash commands,
+    and reports which scanning features are available based on configuration.
     """
     log.info("Bot ready: %s (ID: %s)", bot.user.name, bot.user.id)
     log.info("Connected to %d guilds", len(bot.guilds))
@@ -196,6 +201,14 @@ async def on_ready() -> None:
     # Create scans directory
     SCANS_DIR.mkdir(exist_ok=True)
     log.info("Scans directory: %s", SCANS_DIR.absolute())
+
+    # Sync slash commands globally
+    try:
+        log.info("Syncing slash commands...")
+        synced = await bot.tree.sync()
+        log.info("Synced %d slash command(s)", len(synced))
+    except Exception as e:
+        log.error("Failed to sync commands: %s", e)
 
     # Log configuration status
     log.info("Sherlock available: %s", SherlockScanner.available())
@@ -566,6 +579,337 @@ async def shutdown_bot(ctx: commands.Context) -> None:
     await ctx.send("👋 Shutting down...")
     await bot.close()
     sys.exit(0)
+
+
+# ============================================================================
+# SLASH COMMANDS (Application Commands)
+# ============================================================================
+
+
+# Cooldown tracker for slash commands (user_id -> last_use_timestamp)
+_scan_cooldowns: dict[int, float] = {}
+COOLDOWN_SECONDS = 30
+
+
+def check_cooldown(user_id: int) -> tuple[bool, float]:
+    """Check if user is on cooldown.
+
+    Args:
+        user_id: Discord user ID.
+
+    Returns:
+        Tuple of (is_on_cooldown, remaining_seconds).
+    """
+    now = asyncio.get_event_loop().time()
+    if user_id in _scan_cooldowns:
+        elapsed = now - _scan_cooldowns[user_id]
+        if elapsed < COOLDOWN_SECONDS:
+            return True, COOLDOWN_SECONDS - elapsed
+    return False, 0.0
+
+
+def update_cooldown(user_id: int) -> None:
+    """Update user's last command use timestamp."""
+    _scan_cooldowns[user_id] = asyncio.get_event_loop().time()
+
+
+@bot.tree.command(name="scan", description="Scan a user across platforms for moderation purposes")
+@app_commands.describe(
+    username="Target username to scan (max 50 characters)",
+    mode="Scan mode: sherlock (OSINT), reddit (toxicity), or both"
+)
+@app_commands.choices(mode=[
+    app_commands.Choice(name="Both (Reddit + Sherlock)", value="both"),
+    app_commands.Choice(name="Sherlock (OSINT only)", value="sherlock"),
+    app_commands.Choice(name="Reddit (Toxicity only)", value="reddit"),
+])
+async def scan_slash(
+    interaction: discord.Interaction,
+    username: str,
+    mode: app_commands.Choice[str] = None
+) -> None:
+    """Slash command version of scan.
+
+    Scan a user across platforms for moderation purposes. Works in servers
+    and DMs. Results include Reddit toxicity analysis and/or Sherlock OSINT.
+    """
+    # Default to 'both' if no mode specified
+    scan_mode = mode.value if mode else "both"
+
+    # Check cooldown
+    on_cooldown, remaining = check_cooldown(interaction.user.id)
+    if on_cooldown:
+        await interaction.response.send_message(
+            f"⏱️ Cooldown: try again in {remaining:.1f}s",
+            ephemeral=True
+        )
+        return
+
+    # Validate username length
+    if len(username) > MAX_SCAN_LENGTH:
+        await interaction.response.send_message(
+            f"❌ Username too long (max {MAX_SCAN_LENGTH} characters)",
+            ephemeral=True
+        )
+        return
+
+    # Check if mode is available
+    if scan_mode in ("reddit", "both") and not config.has_reddit_config():
+        await interaction.response.send_message(
+            "❌ Reddit scanning not configured on this bot",
+            ephemeral=True
+        )
+        return
+
+    if scan_mode in ("sherlock", "both") and not SherlockScanner.available():
+        await interaction.response.send_message(
+            "❌ Sherlock not available on this bot",
+            ephemeral=True
+        )
+        return
+
+    # Update cooldown
+    update_cooldown(interaction.user.id)
+
+    # Send initial response (required within 3 seconds)
+    await interaction.response.send_message(
+        f"🔍 Scanning **{username}** (mode: {scan_mode})..."
+    )
+
+    # Log scan request
+    log.info(
+        "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
+        interaction.user.name,
+        interaction.user.id,
+        username,
+        scan_mode,
+    )
+
+    # Create scan configuration
+    scan_config = ScanConfig(
+        username=username,
+        mode=scan_mode,
+        api_key=config.perspective_key,
+        client_id=config.reddit_client_id,
+        client_secret=config.reddit_client_secret,
+        user_agent=config.reddit_user_agent,
+        output_reddit=SCANS_DIR / f"{username}_reddit.csv",
+        output_sherlock=SCANS_DIR / f"{username}_sherlock.json",
+        verbose=True,
+    )
+
+    try:
+        # Run scan with timeout
+        results = await asyncio.wait_for(
+            ScannerAPI.scan_user(username, scan_config),
+            timeout=SCAN_TIMEOUT,
+        )
+
+        # Build results embed
+        embed = discord.Embed(
+            title=f"Scan Results: {username}",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_footer(text=f"Requested by {interaction.user.name}")
+
+        # Add Sherlock results
+        if scan_mode in ("sherlock", "both"):
+            sherlock_results = results.get("sherlock")
+            if sherlock_results:
+                platforms = len(sherlock_results)
+                embed.add_field(
+                    name="🔎 Sherlock OSINT",
+                    value=f"✅ Found on **{platforms}** platforms",
+                    inline=False,
+                )
+            elif sherlock_results == []:
+                embed.add_field(
+                    name="🔎 Sherlock OSINT",
+                    value="❌ No accounts found",
+                    inline=False,
+                )
+
+        # Add Reddit results
+        if scan_mode in ("reddit", "both"):
+            if results.get("reddit"):
+                flagged = len(results["reddit"])
+                status = "⚠️ Toxic content detected" if flagged > 0 else "✅ Clean"
+                embed.add_field(
+                    name="🤖 Reddit Analysis",
+                    value=f"{status} (**{flagged}** flagged items)",
+                    inline=False,
+                )
+            elif "reddit" in results:
+                embed.add_field(
+                    name="🤖 Reddit Analysis",
+                    value="✅ No toxic content found",
+                    inline=False,
+                )
+
+        # Add errors if any
+        if results.get("errors"):
+            error_text = "\n".join(f"• {err}" for err in results["errors"])
+            embed.add_field(
+                name="⚠️ Issues",
+                value=error_text[:1024],  # Discord field limit
+                inline=False,
+            )
+
+        # Edit original response with summary embed
+        await interaction.edit_original_response(content=None, embed=embed)
+
+        # Send detailed results as follow-up messages
+        # Sherlock results
+        if results.get("sherlock"):
+            sherlock_text = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+            for account in results["sherlock"]:
+                sherlock_text += f"{account['platform']}: {account['url']}\n"
+            sherlock_text += "```"
+
+            # Split if too long (Discord has 2000 char limit)
+            if len(sherlock_text) > 1900:
+                chunks = []
+                current_chunk = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+                for account in results["sherlock"]:
+                    line = f"{account['platform']}: {account['url']}\n"
+                    if len(current_chunk) + len(line) + 3 > 1900:
+                        current_chunk += "```"
+                        chunks.append(current_chunk)
+                        current_chunk = "```\n"
+                    current_chunk += line
+                current_chunk += "```"
+                chunks.append(current_chunk)
+
+                for chunk in chunks:
+                    await interaction.followup.send(chunk)
+            else:
+                await interaction.followup.send(sherlock_text)
+
+        # Reddit results
+        if results.get("reddit"):
+            reddit_text = f"**🤖 Reddit Toxicity Analysis for {username}:**\n"
+
+            for item in results["reddit"]:
+                # Format each item
+                item_text = (
+                    f"```\n"
+                    f"Time: {item['timestamp']}\n"
+                    f"Type: {item['type']} | Subreddit: r/{item['subreddit']}\n"
+                    f"Toxicity: {item['TOXICITY']:.2f} | Insult: {item['INSULT']:.2f} | "
+                    f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}\n"
+                    f"Content: {item['content'][:200]}{'...' if len(item['content']) > 200 else ''}\n"
+                    f"```\n"
+                )
+
+                # Check if adding this item would exceed limit
+                if len(reddit_text) + len(item_text) > 1900:
+                    await interaction.followup.send(reddit_text)
+                    reddit_text = ""
+
+                reddit_text += item_text
+
+            if reddit_text:
+                await interaction.followup.send(reddit_text)
+
+        log.info("Scan completed for user '%s'", username)
+
+    except asyncio.TimeoutError:
+        await interaction.edit_original_response(
+            content=f"⏱️ Scan timed out after {SCAN_TIMEOUT}s. Try a simpler scan mode."
+        )
+        log.warning("Scan timeout for user '%s'", username)
+
+    except Exception as e:
+        log.error("Scan error for user '%s': %s", username, e, exc_info=e)
+        await interaction.edit_original_response(
+            content=f"❌ Scan failed: {type(e).__name__}. Check bot logs for details."
+        )
+
+
+@bot.tree.command(name="health", description="Check bot health and service availability")
+async def health_slash(interaction: discord.Interaction) -> None:
+    """Slash command version of health check."""
+    embed = discord.Embed(
+        title="Bot Health Check",
+        color=discord.Color.green(),
+        timestamp=discord.utils.utcnow(),
+    )
+
+    # Bot status
+    latency_ms = bot.latency * 1000
+    latency_status = "🟢" if latency_ms < 200 else "🟡" if latency_ms < 500 else "🔴"
+    embed.add_field(
+        name="Bot Status",
+        value=f"{latency_status} Latency: {latency_ms:.0f}ms\n"
+        f"🌐 Guilds: {len(bot.guilds)}\n"
+        f"👥 Users: {len(bot.users)}",
+        inline=False,
+    )
+
+    # Service availability
+    services = []
+    services.append(
+        f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT"
+    )
+    services.append(
+        f"{'✅' if config.perspective_key else '❌'} Perspective API"
+    )
+    services.append(
+        f"{'✅' if config.has_reddit_config() else '❌'} Reddit API"
+    )
+    embed.add_field(
+        name="Services",
+        value="\n".join(services),
+        inline=False,
+    )
+
+    # System info
+    embed.add_field(
+        name="System",
+        value=f"📁 Scans directory: `{SCANS_DIR.absolute()}`",
+        inline=False,
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="help", description="Show help and usage information")
+async def help_slash(interaction: discord.Interaction) -> None:
+    """Slash command version of help."""
+    embed = discord.Embed(
+        title="Account Scanner Bot - Help",
+        description="Multi-source account scanner for moderation\n\n"
+                    "**This bot uses slash commands!** Type `/` to see available commands.",
+        color=discord.Color.blue(),
+    )
+
+    embed.add_field(
+        name="/scan <username> [mode]",
+        value=(
+            "Scan a user across platforms\n"
+            "**Modes:** sherlock, reddit, both (default)\n"
+            "**Works in:** Servers and DMs\n"
+            "**Cooldown:** 30 seconds\n"
+            "**Example:** `/scan johndoe`"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="/health",
+        value="Check bot health and service availability",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="/help",
+        value="Show this help message",
+        inline=False,
+    )
+
+    embed.set_footer(text="account-scanner v1.3.0 • Slash Commands Enabled")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 def main() -> None:

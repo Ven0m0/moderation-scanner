@@ -146,16 +146,39 @@ timestamp,type,subreddit,content,TOXICITY,INSULT,PROFANITY,SEXUALLY_EXPLICIT
 
 ## Discord Bot
 
-The project includes a production-ready Discord bot for server moderation.
+The project includes a production-ready Discord bot for server moderation with native slash command support.
 
 ### Features
 
-- `!scan <username> [mode]` - Scan accounts across platforms
-- `!health` - Check bot and API status
-- `!help` - Display help information
+- `/scan <username> [mode]` - Scan accounts across platforms (works in DMs!)
+- `/health` - Check bot and API status
+- `/help` - Display help information
 - Permission-based access control
-- Rate limiting and cooldowns
+- Rate limiting and cooldowns (30s per user)
 - Rich embed responses
+- Works in both servers and DMs
+- Legacy prefix commands (!scan, !health, !help) still supported
+
+### Discord Developer Portal Setup
+
+**Required for slash commands:**
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Select your bot application
+3. Navigate to "Bot" section
+4. Enable the following **Privileged Gateway Intents**:
+   - ✅ Message Content Intent (for legacy prefix commands)
+5. Navigate to "OAuth2" → "URL Generator"
+6. Select scopes:
+   - ✅ `bot`
+   - ✅ `applications.commands`
+7. Select bot permissions:
+   - ✅ Send Messages
+   - ✅ Embed Links
+   - ✅ Read Message History
+8. Copy the generated URL and use it to invite the bot
+
+**Note:** Slash commands work in DMs without any server permissions!
 
 ### Local Testing
 

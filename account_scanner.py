@@ -313,27 +313,32 @@ class SherlockScanner:
         await proc.wait()
         log.warning("🔎 Sherlock: timed out after %ds", timeout)
         stdout, stderr = b"", b""
-      if verbose:
-        if stdout:
-          log.debug("Sherlock stdout:\n%s", stdout.decode(errors="ignore"))
-        if stderr:
-          log.debug("Sherlock stderr:\n%s", stderr.decode(errors="ignore"))
+
+      # Always log stderr if present (contains errors/warnings)
+      stderr_text = stderr.decode(errors="ignore").strip() if stderr else ""
+      if stderr_text:
+        # Log at WARNING level so it appears in production logs
+        log.warning("🔎 Sherlock stderr:\n%s", stderr_text)
+
+      if verbose and stdout:
+        log.info("🔎 Sherlock stdout:\n%s", stdout.decode(errors="ignore"))
+
       # Parse stdout
       results:  list[dict[str, Any]] = []
       if stdout:
         results = self._parse_stdout(stdout.decode(errors="ignore"))
+
+      # Check process exit code
+      if proc.returncode and proc.returncode != 0:
+        log.error("🔎 Sherlock: process exited with code %d", proc.returncode)
+
       if results:
         log.info("🔎 Sherlock: collected %d claimed accounts", len(results))
       else:
-        if stderr and not verbose:
-          log.error(stderr.decode(errors="ignore"))
         log.info("🔎 Sherlock: no claimed accounts found")
       return results
     except Exception as e:
-      msg = f"Sherlock error: {e}"
-      (log.debug if verbose else log.error)(msg)
-      if not verbose:
-        log.info("🔎 Sherlock: failed; rerun with --verbose for details")
+      log.error("🔎 Sherlock error: %s", e, exc_info=verbose)
       return []
 
 
