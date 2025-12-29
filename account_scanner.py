@@ -359,8 +359,8 @@ class SherlockScanner:
         except asyncio.CancelledError:
             log.warning("🔎 Sherlock: scan cancelled")
             raise
-        except (ValueError, RuntimeError) as e:
-            log.error("🔎 Sherlock error: %s", e, exc_info=verbose)
+        except (ValueError, RuntimeError):
+            log.exception("🔎 Sherlock error")
             return []
 
 
