@@ -59,9 +59,9 @@ from pathlib import Path
 from typing import Final
 
 import discord
+import uvloop
 from discord import app_commands
 from discord.ext import commands
-import uvloop
 
 from account_scanner import ScanConfig, ScannerAPI, SherlockScanner
 
@@ -435,7 +435,7 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
 
         log.info("Scan completed for user '%s'", username)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await status_msg.edit(
             content=f"⏱️ Scan timed out after {SCAN_TIMEOUT}s. Try a simpler scan mode."
         )
@@ -814,7 +814,7 @@ async def scan_slash(
 
         log.info("Scan completed for user '%s'", username)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await interaction.edit_original_response(
             content=f"⏱️ Scan timed out after {SCAN_TIMEOUT}s. Try a simpler scan mode."
         )
