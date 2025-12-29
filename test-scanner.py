@@ -41,4 +41,4 @@ def test_sherlock_available() -> None:
 )
 def test_sherlock_status(status: str, expected: bool) -> None:
     """Test Sherlock status detection."""
-    assert SherlockScanner._is_claimed(status) == expected  # noqa: SLF001
+    assert SherlockScanner._is_claimed(status) == expected

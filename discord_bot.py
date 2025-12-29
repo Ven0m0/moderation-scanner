@@ -8,7 +8,7 @@ import re
 import sys
 from collections import deque
 from pathlib import Path
-from typing import Deque, Final, Tuple
+from typing import Final
 
 import discord
 import uvloop
@@ -17,10 +17,10 @@ from discord.ext import commands
 
 # Fix 2: Import RateLimiter to create a global instance
 from account_scanner import (
+    RateLimiter,
     ScanConfig,
     ScannerAPI,
     SherlockScanner,
-    RateLimiter,
     close_http_client,
 )
 
@@ -443,7 +443,7 @@ async def shutdown_bot(ctx: commands.Context) -> None:
 
 # Performance-optimized cooldown system using deque for O(1) cleanup
 _scan_cooldowns: dict[int, float] = {}
-_cooldown_queue: Deque[Tuple[float, int]] = deque()
+_cooldown_queue: deque[tuple[float, int]] = deque()
 COOLDOWN_SECONDS = 30
 
 
