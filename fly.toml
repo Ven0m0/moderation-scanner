@@ -1,12 +1,10 @@
-# Fly.io configuration for Discord Account Scanner Bot
-# Documentation: https://fly.io/docs/reference/configuration/
+# Fly.io configuration for Discord Account Scanner Bot https://fly.io/docs/reference/configuration
 app = 'moderation-scanner'
 primary_region = 'fra'
 kill_signal = "SIGINT"
 kill_timeout = "30s"
 
 [build]
-  dockerfile = "Dockerfile"
 
 [deploy]
   strategy = "immediate"
@@ -18,16 +16,11 @@ kill_timeout = "30s"
   PYTHONIOENCODING = "utf-8"
   PYTHONOPTIMIZE = "1"
 
-# VM configuration optimized for Discord bot
 [vm]
-  memory = '512mb'
+  memory = '256mb'
   cpu_kind = 'shared'
   cpus = 1
 
-# Restart policy - prevent crash loops
 [restart]
   policy = "on-failure"
   max_retries = 5
-
-# No services section needed - Discord bots don't expose ports
-# Fly.io will keep the process running via the process supervisor
