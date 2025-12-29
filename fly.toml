@@ -6,18 +6,19 @@ kill_signal = "SIGINT"
 kill_timeout = "30s"
 
 [build]
+  dockerfile = "Dockerfile"
 
 [deploy]
   strategy = "immediate"
 
 [env]
+  PYTHONUNBUFFERED = "1"
   PYTHONDONTWRITEBYTECODE = "1"
   PYTHONHASHSEED = "0"
   PYTHONFAULTHANDLER = "0"
   PYTHONIOENCODING = "utf-8"
   PYTHONOPTIMIZE = "2"
   PYTHONMALLOCSTATS = "0"
-
 # VM configuration optimized for Discord bot
 [vm]
   memory = '256mb'
