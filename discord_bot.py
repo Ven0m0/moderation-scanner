@@ -322,18 +322,21 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
         embed.set_footer(text=f"Requested by {ctx.author.name}")
 
         # Add Sherlock results
-        if results.get("sherlock"):
-            platforms = len(results["sherlock"])
-            platform_list = ", ".join(
-                r["platform"] for r in results["sherlock"][:5]
-            )
-            if platforms > 5:
-                platform_list += f" ... (+{platforms - 5} more)"
-            embed.add_field(
-                name="🔎 Sherlock OSINT",
-                value=f"Found on **{platforms}** platforms\n{platform_list}",
-                inline=False,
-            )
+        if mode in ("sherlock", "both"):
+            sherlock_results = results.get("sherlock")
+            if sherlock_results:
+                platforms = len(sherlock_results)
+                embed.add_field(
+                    name="🔎 Sherlock OSINT",
+                    value=f"✅ Found on **{platforms}** platforms",
+                    inline=False,
+                )
+            elif sherlock_results == []:
+                embed.add_field(
+                    name="🔎 Sherlock OSINT",
+                    value="❌ No accounts found",
+                    inline=False,
+                )
 
         # Add Reddit results
         if mode in ("reddit", "both"):
@@ -416,8 +419,6 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
 
             if reddit_text:
                 await ctx.send(reddit_text)
-        elif mode in ("reddit", "both") and "reddit" not in results:
-            await ctx.send(f"✅ **No toxic content found for {username}**")
 
         log.info("Scan completed for user '%s'", username)
 
