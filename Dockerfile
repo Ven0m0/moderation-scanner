@@ -7,7 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONOPTIMIZE=2 \
     PYTHONFAULTHANDLER=0 \
     PYTHONIOENCODING=utf-8 \
-    PYTHONMALLOCSTATS=0
+    PYTHONMALLOCSTATS=0 \
+    LC_ALL=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -69,6 +71,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONMALLOCSTATS=0 \
+    DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C.UTF-8 \
     PATH="/home/botuser/.local/bin:$PATH"
 
 # Run the Discord bot
