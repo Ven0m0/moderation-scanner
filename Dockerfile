@@ -32,11 +32,6 @@ RUN pip install --no-cache-dir --use-pep517 sherlock-project
 # Production stage
 FROM python:3.11-slim
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash botuser && \
     mkdir -p /app /app/scans && \
@@ -61,13 +56,12 @@ RUN mkdir -p /app/scans
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
-# Set environment variables
+# Set environment variables for Python optimization
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONOPTIMIZE=1 \
-    DEBIAN_FRONTEND=noninteractive \
     LC_ALL=C.UTF-8 \
     PATH="/home/botuser/.local/bin:$PATH"
 
