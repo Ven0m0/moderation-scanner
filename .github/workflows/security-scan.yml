@@ -3,8 +3,18 @@ name: Security Scan
 on:
   push:
     branches: ["main"]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/security-scan.yml'
   pull_request:
     branches: ["main"]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/security-scan.yml'
   schedule:
     # Run weekly on Sundays at midnight UTC
     - cron: '0 0 * * 0'
@@ -13,6 +23,10 @@ on:
 permissions:
   contents: read
   security-events: write  # For uploading SARIF results
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel security scans
 
 jobs:
   pip-audit:
