@@ -84,6 +84,7 @@ select = [
 ignore = [
   "E501",   # line too long (formatter handles)
   "SIM105", # contextlib.suppress (prefer explicit)
+  "RUF005", # iterable unpacking (prefer simple concatenation for readability)
 ]
 
 [tool.ruff.lint.isort]
