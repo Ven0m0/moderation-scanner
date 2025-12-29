@@ -228,7 +228,7 @@ class SherlockScanner:
         results: list[dict[str, Any]] = []
         for raw_line in text.splitlines():
             stripped_line = raw_line.strip()
-            if "://" not in stripped_line or ":  " not in stripped_line:
+            if "://" not in stripped_line or ": " not in stripped_line:
                 continue
             # Remove timestamp prefix if present
             if "]:  " in stripped_line:
