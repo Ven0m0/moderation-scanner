@@ -29,7 +29,7 @@ dev = [
   "ruff~=0.14.10",
   "mypy~=1.19.1",
   "pytest~=9.0.2",
-  "pytest-asyncio~=0.24.0",
+  "pytest-asyncio~=1.3.0",
   "pip-audit>=2.10.0",  # Security vulnerability scanning
   "types-aiofiles>=24.0.0",  # Type stubs for mypy
 ]
