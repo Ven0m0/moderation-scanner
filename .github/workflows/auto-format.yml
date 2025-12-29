@@ -43,7 +43,7 @@ jobs:
         id: format
         run: |
           ruff format .
-          ruff check . --fix --unsafe-fixes
+          ruff check . --fix
 
       - name: Check for changes
         id: changes
