@@ -208,7 +208,7 @@ async def on_ready() -> None:
         log.info("Syncing slash commands...")
         synced = await bot.tree.sync()
         log.info("Synced %d slash command(s)", len(synced))
-    except Exception as e:
+    except (discord.HTTPException, discord.DiscordException) as e:
         log.error("Failed to sync commands: %s", e)
 
     # Log configuration status
@@ -441,11 +441,13 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
             content=f"⏱️ Scan timed out after {SCAN_TIMEOUT}s. Try a simpler scan mode."
         )
         log.warning("Scan timeout for user '%s'", username)
-
-    except Exception as e:
-        log.error("Scan error for user '%s': %s", username, e, exc_info=e)
+    except (discord.HTTPException, discord.DiscordException):
+        log.exception("Discord error during scan for user '%s'", username)
+        await ctx.send("❌ Discord API error occurred. Please try again.")
+    except (OSError, ValueError, RuntimeError):
+        log.exception("Scan error for user '%s'", username)
         await status_msg.edit(
-            content=f"❌ Scan failed: {type(e).__name__}. Check bot logs for details."
+            content="❌ Scan failed. Check bot logs for details."
         )
 
 
@@ -816,11 +818,18 @@ async def scan_slash(
             content=f"⏱️ Scan timed out after {SCAN_TIMEOUT}s. Try a simpler scan mode."
         )
         log.warning("Scan timeout for user '%s'", username)
-
-    except Exception as e:
-        log.error("Scan error for user '%s': %s", username, e, exc_info=e)
+    except (discord.HTTPException, discord.DiscordException):
+        log.exception("Discord error during scan for user '%s'", username)
+        try:
+            await interaction.edit_original_response(
+                content="❌ Discord API error occurred. Please try again."
+            )
+        except discord.HTTPException:
+            log.error("Failed to send error message to user")
+    except (OSError, ValueError, RuntimeError):
+        log.exception("Scan error for user '%s'", username)
         await interaction.edit_original_response(
-            content=f"❌ Scan failed: {type(e).__name__}. Check bot logs for details."
+            content="❌ Scan failed. Check bot logs for details."
         )
 
 
@@ -937,7 +946,7 @@ def main() -> None:
     try:
         uvloop.install()
         log.info("uvloop installed for better async performance")
-    except Exception as e:
+    except (ImportError, RuntimeError) as e:
         log.warning("Failed to install uvloop, using default event loop: %s", e)
 
     log.info("Starting Discord bot...")
@@ -963,8 +972,8 @@ def main() -> None:
     except KeyboardInterrupt:
         log.info("Interrupted by user")
         sys.exit(0)
-    except Exception as e:
-        log.error("Fatal error: %s", e, exc_info=e)
+    except (OSError, RuntimeError, ValueError):
+        log.exception("Fatal error")
         log.error("Bot crashed - check logs above for details")
         sys.exit(1)
     finally:
@@ -981,7 +990,7 @@ def main() -> None:
                 )
                 log.info("Closing the event loop.")
                 loop.close()
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             log.warning("Error during cleanup: %s", e)
 
 
