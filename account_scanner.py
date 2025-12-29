@@ -353,8 +353,8 @@ class SherlockScanner:
             else:
                 log.info("🔎 Sherlock: no claimed accounts found")
             return results
-        except OSError as e:
-            log.error("🔎 Sherlock OS error: %s", e, exc_info=verbose)
+        except OSError:
+            log.exception("🔎 Sherlock OS error")
             return []
         except asyncio.CancelledError:
             log.warning("🔎 Sherlock: scan cancelled")
