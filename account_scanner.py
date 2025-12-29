@@ -412,8 +412,9 @@ class RedditScanner:
           k: v["summaryScore"]["value"]
           for k, v in data.get("attributeScores", {}).items()
         }
-    except Exception:
-      pass
+    except Exception as exc:
+      # Swallowing the exception is intentional: failure yields no toxicity data.
+      logging.warning("Perspective API request failed; returning empty scores: %s", exc)
     return {}
 
   async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
