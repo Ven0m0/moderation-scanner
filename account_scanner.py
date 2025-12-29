@@ -515,7 +515,7 @@ class RedditScanner:
       buffer = io.StringIO()
       writer = csv.DictWriter(
         buffer,
-        fieldnames=[*["timestamp", "type", "subreddit", "content"], *ATTRIBUTES],
+        fieldnames=["timestamp", "type", "subreddit", "content"] + ATTRIBUTES,
       )
       writer.writeheader()
       writer.writerows(flagged)
