@@ -19,7 +19,7 @@ makedepends=(
   python-build
   python-installer
   python-wheel
-  python-setuptools>=78.0.0
+  python-setuptools
 )
 optdepends=(
   'python-uvloop: async event loop performance boost (Linux only)'
