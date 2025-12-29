@@ -193,11 +193,11 @@ class ScanConfig:
     def __post_init__(self) -> None:
         # FIX 4: Sanitize username to prevent path traversal if used in filenames
         # Allows alphanumeric, underscores, and hyphens only.
-        self.username = re.sub(r'[^\w\-]', '_', self.username)
-        
+        self.username = re.sub(r"[^\w\-]", "_", self.username)
+
         self.output_reddit = Path(self.output_reddit)
         self.output_sherlock = Path(self.output_sherlock)
-        
+
         if not self.user_agent:
             self.user_agent = f"account-scanner/1.2.3 (by u/{self.username})"
 
@@ -254,7 +254,7 @@ class SherlockScanner:
     ) -> list[dict[str, Any]]:
         """Run Sherlock OSINT scan for the given username."""
         log.info("🔎 Sherlock:  Scanning '%s'.. .", username)
-        
+
         # FIX 5: Added "--" to prevent argument injection
         cmd = [
             "sherlock",
@@ -265,7 +265,7 @@ class SherlockScanner:
             "--no-color",
             "--print-found",
         ]
-        
+
         if output_dir:
             output_file = output_dir / f"{username}.txt"
             cmd.extend(["--output", str(output_file)])
@@ -369,13 +369,13 @@ class RedditScanner:
             )
         return {}
 
-    async def _fetch_comments(self, user: Redditor) -> list[tuple[str, str, str, float]]:
+    async def _fetch_comments(
+        self, user: Redditor
+    ) -> list[tuple[str, str, str, float]]:
         """Fetch Reddit comments for a user."""
         items: list[tuple[str, str, str, float]] = []
         async for c in user.comments.new(limit=self.config.comments):
-            items.append(
-                ("comment", c.subreddit.display_name, c.body, c.created_utc)
-            )
+            items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
         return items
 
     async def _fetch_posts(self, user: Redditor) -> list[tuple[str, str, str, float]]:
@@ -410,7 +410,7 @@ class RedditScanner:
             comments, posts = await asyncio.gather(
                 self._fetch_comments(user),
                 self._fetch_posts(user),
-                return_exceptions=False
+                return_exceptions=False,
             )
 
             items = comments + posts
@@ -495,7 +495,7 @@ class ScannerAPI:
             return cached_result
 
         results: dict[str, Any] = {
-            "username": config.username, # Use sanitized username from config
+            "username": config.username,  # Use sanitized username from config
             "sherlock": None,
             "reddit": None,
             "errors": [],
@@ -591,14 +591,14 @@ async def main_async() -> None:
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     config = ScanConfig(**vars(args))
-    
+
     # Execute scan using ScannerAPI for consistency
     results = await ScannerAPI.scan_user(config.username, config)
-    
+
     # Handle results output manually for CLI (file writing is partly done in API)
     # But Sherlock JSON writing was done in main previously.
     # Note: Reddit CSV writing is handled inside RedditScanner.scan()
-    
+
     if results["sherlock"]:
         result = results["sherlock"]
         json_content = orjson.dumps(result, option=orjson.OPT_INDENT_2)
@@ -609,7 +609,7 @@ async def main_async() -> None:
             len(result),
             config.output_sherlock,
         )
-    
+
     if results["errors"]:
         for err in results["errors"]:
             log.error("Error: %s", err)

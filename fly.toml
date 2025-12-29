@@ -22,6 +22,3 @@ dockerfile = "Dockerfile"
   cpu_kind = 'shared'
   cpus = 1
 
-[restart]
-  policy = "on-failure"
-  max_retries = 5

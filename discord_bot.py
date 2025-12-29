@@ -16,7 +16,13 @@ from discord import app_commands
 from discord.ext import commands
 
 # Fix 2: Import RateLimiter to create a global instance
-from account_scanner import ScanConfig, ScannerAPI, SherlockScanner, RateLimiter, close_http_client
+from account_scanner import (
+    ScanConfig,
+    ScannerAPI,
+    SherlockScanner,
+    RateLimiter,
+    close_http_client,
+)
 
 # Logging configuration
 logging.basicConfig(
@@ -80,7 +86,9 @@ class BotConfig:
         if not self.discord_token:
             log.error("DISCORD_BOT_TOKEN environment variable is not set!")
             log.error("Please set DISCORD_BOT_TOKEN in your Fly.io secrets:")
-            log.error("  fly secrets set DISCORD_BOT_TOKEN=your_token_here -a moderation-scanner")
+            log.error(
+                "  fly secrets set DISCORD_BOT_TOKEN=your_token_here -a moderation-scanner"
+            )
             raise ConfigurationError("DISCORD_BOT_TOKEN is required")
         if not self.perspective_key:
             log.warning(
@@ -118,7 +126,11 @@ async def on_ready() -> None:
     try:
         log.info("Syncing slash commands...")
         synced = await bot.tree.sync()
-        log.info("✅ Synced %d slash command(s): %s", len(synced), [cmd.name for cmd in synced])
+        log.info(
+            "✅ Synced %d slash command(s): %s",
+            len(synced),
+            [cmd.name for cmd in synced],
+        )
     except discord.HTTPException as e:
         log.error("❌ Failed to sync commands (HTTP %s): %s", e.status, e.text)
         log.error("This may be due to invalid application configuration")
@@ -185,7 +197,7 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
         return
 
     # FIX 4: Sanitize username for filename safety
-    safe_username = re.sub(r'[^\w\-]', '_', username)
+    safe_username = re.sub(r"[^\w\-]", "_", username)
 
     status_msg = await ctx.send(f"🔍 Scanning **{username}** (mode: {mode})...")
     log.info(
@@ -280,9 +292,7 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
             pass
     except (OSError, ValueError, RuntimeError):
         log.exception("Scan error for user '%s'", username)
-        await status_msg.edit(
-            content="❌ Scan failed. Check bot logs for details."
-        )
+        await status_msg.edit(content="❌ Scan failed. Check bot logs for details.")
 
 
 async def _send_detailed_results(ctx, username, results) -> None:
@@ -290,8 +300,15 @@ async def _send_detailed_results(ctx, username, results) -> None:
     # Sherlock results
     if results.get("sherlock"):
         # Use list and join for better performance
-        lines = [f"{account['platform']}: {account['url']}" for account in results["sherlock"]]
-        sherlock_text = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n" + "\n".join(lines) + "\n```"
+        lines = [
+            f"{account['platform']}: {account['url']}"
+            for account in results["sherlock"]
+        ]
+        sherlock_text = (
+            f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+            + "\n".join(lines)
+            + "\n```"
+        )
 
         if len(sherlock_text) > 1900:
             chunks = []
@@ -300,7 +317,9 @@ async def _send_detailed_results(ctx, username, results) -> None:
 
             for line in lines:
                 line_with_newline = line + "\n"
-                if current_length + len(line_with_newline) + 3 > 1900:  # 3 for closing ```
+                if (
+                    current_length + len(line_with_newline) + 3 > 1900
+                ):  # 3 for closing ```
                     chunk_lines.append("```")
                     chunks.append("\n".join(chunk_lines))
                     chunk_lines = ["```", line]
@@ -330,7 +349,9 @@ async def _send_detailed_results(ctx, username, results) -> None:
         current_length = len(current_lines[0]) + 1  # +1 for newline
 
         for item in results["reddit"]:
-            content_preview = item['content'][:200] + ('...' if len(item['content']) > 200 else '')
+            content_preview = item["content"][:200] + (
+                "..." if len(item["content"]) > 200 else ""
+            )
             item_lines = [
                 "```",
                 f"Time: {item['timestamp']}",
@@ -338,7 +359,7 @@ async def _send_detailed_results(ctx, username, results) -> None:
                 f"Toxicity: {item['TOXICITY']:.2f} | Insult: {item['INSULT']:.2f} | "
                 f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}",
                 f"Content: {content_preview}",
-                "```"
+                "```",
             ]
             item_text = "\n".join(item_lines) + "\n"
 
@@ -500,9 +521,9 @@ async def scan_slash(
         return
 
     update_cooldown(interaction.user.id)
-    
+
     # FIX 4: Sanitize username for filename safety
-    safe_username = re.sub(r'[^\w\-]', '_', username)
+    safe_username = re.sub(r"[^\w\-]", "_", username)
 
     await interaction.response.send_message(
         f"🔍 Scanning **{username}** (mode: {scan_mode})..."
@@ -673,11 +694,23 @@ def main() -> None:
     log.info("Discord Account Scanner Bot v1.3.0")
     log.info("=" * 60)
     log.info("Configuration:")
-    log.info("  - Discord Token: %s", "✅ Set" if config.discord_token else "❌ Missing")
-    log.info("  - Perspective API: %s", "✅ Set" if config.perspective_key else "❌ Missing")
-    log.info("  - Reddit API: %s", "✅ Set" if config.has_reddit_config() else "❌ Missing")
-    log.info("  - Admin Users: %s", len(config.admin_user_ids) if config.admin_user_ids else "None")
-    log.info("  - Message Content Intent: %s", "✅ Enabled" if intents.message_content else "❌ Disabled")
+    log.info(
+        "  - Discord Token: %s", "✅ Set" if config.discord_token else "❌ Missing"
+    )
+    log.info(
+        "  - Perspective API: %s", "✅ Set" if config.perspective_key else "❌ Missing"
+    )
+    log.info(
+        "  - Reddit API: %s", "✅ Set" if config.has_reddit_config() else "❌ Missing"
+    )
+    log.info(
+        "  - Admin Users: %s",
+        len(config.admin_user_ids) if config.admin_user_ids else "None",
+    )
+    log.info(
+        "  - Message Content Intent: %s",
+        "✅ Enabled" if intents.message_content else "❌ Disabled",
+    )
     log.info("=" * 60)
 
     # Start the bot
@@ -694,7 +727,9 @@ def main() -> None:
         log.error("  1. Go to https://discord.com/developers/applications")
         log.error("  2. Select your application")
         log.error("  3. Go to 'Bot' section")
-        log.error("  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents")
+        log.error(
+            "  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents"
+        )
         sys.exit(1)
     except discord.HTTPException as e:
         log.error("❌ Discord HTTP error: %s (status: %s)", e.text, e.status)
