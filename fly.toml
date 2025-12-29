@@ -12,7 +12,11 @@ kill_timeout = "30s"
 
 [env]
   PYTHONDONTWRITEBYTECODE = "1"
+  PYTHONHASHSEED = "0"
+  PYTHONFAULTHANDLER = "0"
+  PYTHONIOENCODING = "utf-8"
   PYTHONOPTIMIZE = "2"
+  PYTHONMALLOCSTATS = "0"
 
 # VM configuration optimized for Discord bot
 [vm]
