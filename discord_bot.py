@@ -323,14 +323,15 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
 
         # Add Sherlock results
         if mode in ("sherlock", "both"):
-            if results.get("sherlock"):
-                platforms = len(results["sherlock"])
+            sherlock_results = results.get("sherlock")
+            if sherlock_results:
+                platforms = len(sherlock_results)
                 embed.add_field(
                     name="🔎 Sherlock OSINT",
                     value=f"✅ Found on **{platforms}** platforms",
                     inline=False,
                 )
-            elif "sherlock" in results:
+            elif sherlock_results == []:
                 embed.add_field(
                     name="🔎 Sherlock OSINT",
                     value="❌ No accounts found",
