@@ -51,6 +51,7 @@ The bot is configured via environment variables:
 
 See DEPLOYMENT.md for production deployment instructions.
 """
+
 import asyncio
 import logging
 import os
@@ -162,7 +163,9 @@ class BotConfig:
 
         # Warn about optional configs
         if not self.perspective_key:
-            log.warning("PERSPECTIVE_API_KEY not set - Reddit toxicity scanning disabled")
+            log.warning(
+                "PERSPECTIVE_API_KEY not set - Reddit toxicity scanning disabled"
+            )
         if not self.reddit_client_id or not self.reddit_client_secret:
             log.warning("Reddit credentials not set - Reddit scanning disabled")
 
@@ -173,9 +176,7 @@ class BotConfig:
             True if Perspective API key and Reddit credentials are all set.
         """
         return bool(
-            self.perspective_key
-            and self.reddit_client_id
-            and self.reddit_client_secret
+            self.perspective_key and self.reddit_client_id and self.reddit_client_secret
         )
 
 
@@ -486,15 +487,9 @@ async def check_health(ctx: commands.Context) -> None:
 
     # Service availability
     services = []
-    services.append(
-        f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT"
-    )
-    services.append(
-        f"{'✅' if config.perspective_key else '❌'} Perspective API"
-    )
-    services.append(
-        f"{'✅' if config.has_reddit_config() else '❌'} Reddit API"
-    )
+    services.append(f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT")
+    services.append(f"{'✅' if config.perspective_key else '❌'} Perspective API")
+    services.append(f"{'✅' if config.has_reddit_config() else '❌'} Reddit API")
     embed.add_field(
         name="Services",
         value="\n".join(services),
@@ -613,20 +608,26 @@ def update_cooldown(user_id: int) -> None:
     _scan_cooldowns[user_id] = asyncio.get_event_loop().time()
 
 
-@bot.tree.command(name="scan", description="Scan a user across platforms for moderation purposes")
+@bot.tree.command(
+    name="scan", description="Scan a user across platforms for moderation purposes"
+)
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
     username="Target username to scan (max 50 characters)",
-    mode="Scan mode: sherlock (OSINT), reddit (toxicity), or both"
+    mode="Scan mode: sherlock (OSINT), reddit (toxicity), or both",
 )
-@app_commands.choices(mode=[
-    app_commands.Choice(name="Both (Reddit + Sherlock)", value="both"),
-    app_commands.Choice(name="Sherlock (OSINT only)", value="sherlock"),
-    app_commands.Choice(name="Reddit (Toxicity only)", value="reddit"),
-])
+@app_commands.choices(
+    mode=[
+        app_commands.Choice(name="Both (Reddit + Sherlock)", value="both"),
+        app_commands.Choice(name="Sherlock (OSINT only)", value="sherlock"),
+        app_commands.Choice(name="Reddit (Toxicity only)", value="reddit"),
+    ]
+)
 async def scan_slash(
     interaction: discord.Interaction,
     username: str,
-    mode: app_commands.Choice[str] = None
+    mode: app_commands.Choice[str] = None,
 ) -> None:
     """Slash command version of scan.
 
@@ -640,31 +641,27 @@ async def scan_slash(
     on_cooldown, remaining = check_cooldown(interaction.user.id)
     if on_cooldown:
         await interaction.response.send_message(
-            f"⏱️ Cooldown: try again in {remaining:.1f}s",
-            ephemeral=True
+            f"⏱️ Cooldown: try again in {remaining:.1f}s", ephemeral=True
         )
         return
 
     # Validate username length
     if len(username) > MAX_SCAN_LENGTH:
         await interaction.response.send_message(
-            f"❌ Username too long (max {MAX_SCAN_LENGTH} characters)",
-            ephemeral=True
+            f"❌ Username too long (max {MAX_SCAN_LENGTH} characters)", ephemeral=True
         )
         return
 
     # Check if mode is available
     if scan_mode in ("reddit", "both") and not config.has_reddit_config():
         await interaction.response.send_message(
-            "❌ Reddit scanning not configured on this bot",
-            ephemeral=True
+            "❌ Reddit scanning not configured on this bot", ephemeral=True
         )
         return
 
     if scan_mode in ("sherlock", "both") and not SherlockScanner.available():
         await interaction.response.send_message(
-            "❌ Sherlock not available on this bot",
-            ephemeral=True
+            "❌ Sherlock not available on this bot", ephemeral=True
         )
         return
 
@@ -827,7 +824,11 @@ async def scan_slash(
         )
 
 
-@bot.tree.command(name="health", description="Check bot health and service availability")
+@bot.tree.command(
+    name="health", description="Check bot health and service availability"
+)
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def health_slash(interaction: discord.Interaction) -> None:
     """Slash command version of health check."""
     embed = discord.Embed(
@@ -849,15 +850,9 @@ async def health_slash(interaction: discord.Interaction) -> None:
 
     # Service availability
     services = []
-    services.append(
-        f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT"
-    )
-    services.append(
-        f"{'✅' if config.perspective_key else '❌'} Perspective API"
-    )
-    services.append(
-        f"{'✅' if config.has_reddit_config() else '❌'} Reddit API"
-    )
+    services.append(f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT")
+    services.append(f"{'✅' if config.perspective_key else '❌'} Perspective API")
+    services.append(f"{'✅' if config.has_reddit_config() else '❌'} Reddit API")
     embed.add_field(
         name="Services",
         value="\n".join(services),
@@ -875,12 +870,14 @@ async def health_slash(interaction: discord.Interaction) -> None:
 
 
 @bot.tree.command(name="help", description="Show help and usage information")
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def help_slash(interaction: discord.Interaction) -> None:
     """Slash command version of help."""
     embed = discord.Embed(
         title="Account Scanner Bot - Help",
         description="Multi-source account scanner for moderation\n\n"
-                    "**This bot uses slash commands!** Type `/` to see available commands.",
+        "**This bot uses slash commands!** Type `/` to see available commands.",
         color=discord.Color.blue(),
     )
 
@@ -979,7 +976,9 @@ def main() -> None:
                 pending = asyncio.all_tasks(loop)
                 for task in pending:
                     task.cancel()
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
                 log.info("Closing the event loop.")
                 loop.close()
         except Exception as e:
