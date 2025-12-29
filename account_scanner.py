@@ -45,6 +45,8 @@ SHERLOCK_BUFFER: Final = 30
 ATTRIBUTES: Final = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
 HTTP_OK: Final = 200
+# Concurrency limit for API calls to prevent overwhelming the event loop
+MAX_CONCURRENT_API_CALLS: Final = 5
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -184,7 +186,7 @@ class ScanConfig:
     threshold: float = 0.7
     rate_per_min: float = 60.0
     # Sherlock
-    sherlock_timeout: int = 60
+    sherlock_timeout: int = 120  # Increased from 60s to handle slow network/server
     # Output
     output_reddit: Path = field(default_factory=lambda: Path("reddit_flagged.csv"))
     output_sherlock: Path = field(default_factory=lambda: Path("sherlock_results.json"))
@@ -433,11 +435,21 @@ class RedditScanner:
         log.info("🤖 Reddit:  Analyzing %d items...", len(items))
         # Use shared HTTP client for connection reuse
         client = await get_http_client()
+
+        # Use semaphore to limit concurrent API calls and prevent blocking heartbeat
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+
+        async def throttled_check(text: str) -> dict[str, float]:
+            async with semaphore:
+                result = await self._check_toxicity(
+                    client, text, self.config.api_key or ""
+                )
+                # Yield to event loop to prevent blocking Discord heartbeat
+                await asyncio.sleep(0)
+                return result
+
         results = await asyncio.gather(
-            *[
-                self._check_toxicity(client, text, self.config.api_key or "")
-                for _, _, text, _ in items
-            ]
+            *[throttled_check(text) for _, _, text, _ in items]
         )
         # Filter flagged content
         flagged: list[dict[str, Any]] = []
@@ -576,7 +588,7 @@ async def main_async() -> None:
         "--rate-per-min", type=float, default=60.0, help="API rate limit"
     )
     parser.add_argument(
-        "--sherlock-timeout", type=int, default=60, help="Sherlock timeout (s)"
+        "--sherlock-timeout", type=int, default=120, help="Sherlock timeout (s)"
     )
     parser.add_argument(
         "--output-reddit", default="reddit_flagged.csv", help="Reddit output file"
