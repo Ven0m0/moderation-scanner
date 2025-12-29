@@ -2,7 +2,7 @@
 FROM python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=0 \
+    PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONOPTIMIZE=2 \
     PYTHONFAULTHANDLER=0 \
@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
 # Install Sherlock (optional but recommended for full functionality)
-RUN pip install --no-cache-dir sherlock-project
+# Use --use-pep517 to avoid stem build issues with legacy setup.py
+RUN pip install --no-cache-dir --use-pep517 sherlock-project
 
 # Production stage
 FROM python:3.11-slim
@@ -62,7 +63,7 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=0 \
+    PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONOPTIMIZE=2 \
     PYTHONFAULTHANDLER=0 \
@@ -71,4 +72,4 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/home/botuser/.local/bin:$PATH"
 
 # Run the Discord bot
-CMD ["python", "-u", "discord_bot.py"]
+CMD ["python", "discord_bot.py"]

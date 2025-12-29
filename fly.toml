@@ -12,7 +12,7 @@ kill_timeout = "30s"
   strategy = "immediate"
 
 [env]
-  PYTHONUNBUFFERED = "0"
+  PYTHONUNBUFFERED = "1"
   PYTHONDONTWRITEBYTECODE = "1"
   PYTHONHASHSEED = "0"
   PYTHONFAULTHANDLER = "0"
@@ -25,18 +25,5 @@ kill_timeout = "30s"
   cpu_kind = 'shared'
   cpus = 1
 
-# Restart policy - always keep the bot running
-[[services]]
-  internal_port = 8080
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1
-
-# Health checks to ensure bot stays online
-# Note: restart_limit prevents endless crash loops (0 = unlimited)
-[[services.tcp_checks]]
-  grace_period = "30s"
-  interval = "15s"
-  restart_limit = 10
-  timeout = "10s"
+# No services section needed - Discord bots don't expose ports
+# Fly.io will keep the process running via the process supervisor
