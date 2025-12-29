@@ -21,7 +21,7 @@ dependencies = [
   "asyncpraw>=7.8.1,<8.0.0",  # Updated to latest version
   "uvloop~=0.22.1; platform_system != 'Windows'",  # Updated to latest patch version
   "aiofiles~=25.1",  # Already at latest version
-  "py-cord>=2.7.0,<3.0.0",  # Updated to latest version
+  "discord.py>=2.0.0,<3.0.0",  # Discord API wrapper with app_commands support
 ]
 
 [project.optional-dependencies]
