@@ -38,7 +38,7 @@ jobs:
         cache: 'pip'
 
     - name: Cache pylint
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/pylint
         key: pylint-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/*.py') }}

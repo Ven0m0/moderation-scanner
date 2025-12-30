@@ -40,7 +40,7 @@ jobs:
         cache: 'pip'
 
     - name: Cache tool directories
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cache/ruff
