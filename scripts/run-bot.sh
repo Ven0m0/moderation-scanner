@@ -8,6 +8,11 @@ export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
 has(){ command -v -- "$1" &>/dev/null; }
 die(){ printf '%s\n' "$1" >&2; exit 1; }
 has python3 || die "python3 not found"
+
+# Change to repository root
+SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR/.."
+
 readonly CREDS="${XDG_CONFIG_HOME:-$HOME/.config}/account_scanner/credentials"
 [[ -f $CREDS ]] && source "$CREDS"
 [[ -z ${DISCORD_BOT_TOKEN:-} ]] && die "DISCORD_BOT_TOKEN not set"

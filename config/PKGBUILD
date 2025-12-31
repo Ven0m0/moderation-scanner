@@ -78,12 +78,12 @@ package() {
   python -m installer --destdir="${pkgdir}" dist/*.whl
 
   # Install wrapper script
-  install -Dm755 scan.sh "${pkgdir}/usr/bin/${pkgname}-wrapper"
+  install -Dm755 scripts/scan.sh "${pkgdir}/usr/bin/${pkgname}-wrapper"
 
   # Install documentation
   install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-  if [[ -f CHANGELOG.md ]]; then
-    install -Dm644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
+  if [[ -f docs/changelog.md ]]; then
+    install -Dm644 docs/changelog.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
   fi
 
   # Install credential template

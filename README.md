@@ -18,7 +18,7 @@ Multi-source account scanner combining Reddit toxicity analysis via Perspective 
 
 ## Installation
 
-See [INSTALL.md](INSTALL.md) for comprehensive installation guide.
+See [docs/INSTALL.md](docs/INSTALL.md) for comprehensive installation guide.
 
 **Quick Install:**
 
@@ -70,19 +70,19 @@ export PERSPECTIVE_API_KEY="your_api_key"
 
 ```bash
 # Both scans
-./scan.sh target_username
+./scripts/scan.sh target_username
 
 # Reddit only
-./scan.sh target_username --mode reddit
+./scripts/scan.sh target_username --mode reddit
 
 # Sherlock only
-./scan.sh target_username --mode sherlock
+./scripts/scan.sh target_username --mode sherlock
 
 # Custom thresholds
-./scan.sh target_username --toxicity-threshold 0.8 --comments 100
+./scripts/scan.sh target_username --toxicity-threshold 0.8 --comments 100
 
 # Verbose mode
-./scan.sh target_username --verbose
+./scripts/scan.sh target_username --verbose
 ```
 
 ### Direct Python
@@ -200,8 +200,8 @@ python discord_bot.py
 See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
 
 **Full Documentation:**
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Complete Fly.io deployment guide
-- [PRODUCTION.md](PRODUCTION.md) - Production best practices and optimization
+- [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) - Complete Fly.io deployment guide
+- [docs/deployment/PRODUCTION.md](docs/deployment/PRODUCTION.md) - Production best practices and optimization
 - [.env.example](.env.example) - Environment variable template
 
 **Other Hosting Options:**
@@ -216,17 +216,30 @@ See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
 
 ```
 moderation-scanner/
-├── account_scanner.py    # Core scanner library (Reddit + Sherlock)
-├── discord_bot.py        # Discord bot integration
-├── scan.sh               # Wrapper script for CLI usage
-├── test-scanner.py       # Test suite
-├── fly.toml              # Fly.io deployment config
-├── Dockerfile            # Container image
-├── INSTALL.md            # Installation guide
-├── DEPLOYMENT.md         # Cloud deployment guide
-├── PRODUCTION.md         # Production best practices
-├── QUICKSTART.md         # 5-minute quick start
-└── CONTRIBUTING.md       # Development guide
+├── account_scanner.py         # Core scanner library (Reddit + Sherlock)
+├── discord_bot.py             # Discord bot integration
+├── test-scanner.py            # Test suite
+├── scripts/
+│   ├── scan.sh                # Wrapper script for CLI usage
+│   ├── build.sh               # Build helper script
+│   └── run-bot.sh             # Bot runner script
+├── docs/
+│   ├── README.md              # Documentation index
+│   ├── INSTALL.md             # Installation guide
+│   ├── CONTRIBUTING.md        # Development guide
+│   ├── PACKAGING.md           # Package building guide
+│   ├── changelog.md           # Version history
+│   └── deployment/
+│       ├── DEPLOYMENT.md      # Fly.io deployment
+│       ├── DISCORD_BOT_DEPLOYMENT.md  # Bot deployment options
+│       └── PRODUCTION.md      # Production best practices
+├── config/
+│   ├── PKGBUILD               # Arch Linux package build
+│   └── discord-scanner-bot.service  # Systemd service file
+├── fly.toml                   # Fly.io deployment config
+├── Dockerfile                 # Container image
+├── QUICKSTART.md              # 5-minute quick start
+└── README.md                  # This file
 ```
 
 ### Component Overview
@@ -376,7 +389,7 @@ pytest --cov=account_scanner --cov-report=html
 
 ### Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, coding standards,
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines, coding standards,
 and how to submit pull requests.
 
 ## Toxicity Attributes

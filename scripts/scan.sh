@@ -8,7 +8,7 @@ err(){ printf '%s\n' "$*" >&2; }
 die(){ err "$@"; exit 1; }
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-readonly SCANNER="${SCRIPT_DIR}/account_scanner.py"
+readonly SCANNER="${SCRIPT_DIR}/../account_scanner.py"
 readonly CREDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/account_scanner/credentials"
 
 [[ -f $SCANNER ]] || die "Scanner not found: $SCANNER"
