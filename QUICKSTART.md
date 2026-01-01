@@ -74,8 +74,8 @@ In Discord, try:
 
 - **Monitor logs**: `fly logs -f`
 - **Check status**: `fly status`
-- **Read full deployment guide**: See [DEPLOYMENT.md](DEPLOYMENT.md)
-- **Production tips**: See [PRODUCTION.md](PRODUCTION.md)
+- **Read full deployment guide**: See [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md)
+- **Production tips**: See [docs/deployment/PRODUCTION.md](docs/deployment/PRODUCTION.md)
 
 ## Troubleshooting
 
@@ -105,7 +105,7 @@ Perfect for small to medium Discord servers!
 
 ## Need Help?
 
-- **Full documentation**: [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Full documentation**: [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md)
 - **Fly.io docs**: https://fly.io/docs/
 - **Bot repository**: Check the issues page
 

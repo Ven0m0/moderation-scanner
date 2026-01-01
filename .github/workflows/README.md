@@ -223,7 +223,7 @@ graph TD
 
 - `pyproject.toml` - Ruff, MyPy, pytest configuration
 - `Makefile` - Local development commands
-- `PKGBUILD` - Arch Linux package build
+- `config/PKGBUILD` - Arch Linux package build
 
 ## Maintenance
 

@@ -80,7 +80,7 @@ clean-all: clean pkg-clean ## Clean all artifacts including packages
 
 pkg: ## Build Arch package (local)
 	@echo "$(GREEN)Building Arch package...$(RESET)"
-	./build.sh
+	./scripts/build.sh
 
 pkg-install: pkg ## Build and install Arch package
 	@echo "$(GREEN)Installing Arch package...$(RESET)"
@@ -94,4 +94,4 @@ pkg-clean: ## Clean package build artifacts
 scan: ## Run scan (requires USERNAME variable)
 	@test -n "$(USERNAME)" || { echo "$(YELLOW)Error: USERNAME not set$(RESET)"; exit 1; }
 	@echo "$(GREEN)Running scan for $(USERNAME)...$(RESET)"
-	./scan.sh "$(USERNAME)" $(ARGS)
+	./scripts/scan.sh "$(USERNAME)" $(ARGS)
