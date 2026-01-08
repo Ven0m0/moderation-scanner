@@ -289,7 +289,11 @@ async def scan_user(ctx: commands.Context, username: str, mode: str = "both") ->
         try:
             await ctx.send("❌ Discord API error occurred. Please try again.")
         except (discord.HTTPException, discord.DiscordException):
-            pass
+            log.debug(
+                "Failed to send Discord API error message to user during scan for '%s'",
+                username,
+                exc_info=True,
+            )
     except (OSError, ValueError, RuntimeError):
         log.exception("Scan error for user '%s'", username)
         await status_msg.edit(content="❌ Scan failed. Check bot logs for details.")
