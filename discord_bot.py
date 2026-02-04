@@ -86,21 +86,15 @@ class BotConfig:
         if not self.discord_token:
             log.error("DISCORD_BOT_TOKEN environment variable is not set!")
             log.error("Please set DISCORD_BOT_TOKEN in your Fly.io secrets:")
-            log.error(
-                "  fly secrets set DISCORD_BOT_TOKEN=your_token_here -a moderation-scanner"
-            )
+            log.error("  fly secrets set DISCORD_BOT_TOKEN=your_token_here -a moderation-scanner")
             raise ConfigurationError("DISCORD_BOT_TOKEN is required")
         if not self.perspective_key:
-            log.warning(
-                "PERSPECTIVE_API_KEY not set - Reddit toxicity scanning disabled"
-            )
+            log.warning("PERSPECTIVE_API_KEY not set - Reddit toxicity scanning disabled")
         if not self.reddit_client_id or not self.reddit_client_secret:
             log.warning("Reddit credentials not set - Reddit scanning disabled")
 
     def has_reddit_config(self) -> bool:
-        return bool(
-            self.perspective_key and self.reddit_client_id and self.reddit_client_secret
-        )
+        return bool(self.perspective_key and self.reddit_client_id and self.reddit_client_secret)
 
 
 # Initialize bot configuration
@@ -304,14 +298,9 @@ async def _send_detailed_results(ctx, username, results) -> None:
     # Sherlock results
     if results.get("sherlock"):
         # Use list and join for better performance
-        lines = [
-            f"{account['platform']}: {account['url']}"
-            for account in results["sherlock"]
-        ]
+        lines = [f"{account['platform']}: {account['url']}" for account in results["sherlock"]]
         sherlock_text = (
-            f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
-            + "\n".join(lines)
-            + "\n```"
+            f"**🔎 Sherlock OSINT Results for {username}:**\n```\n" + "\n".join(lines) + "\n```"
         )
 
         if len(sherlock_text) > 1900:
@@ -321,9 +310,7 @@ async def _send_detailed_results(ctx, username, results) -> None:
 
             for line in lines:
                 line_with_newline = line + "\n"
-                if (
-                    current_length + len(line_with_newline) + 3 > 1900
-                ):  # 3 for closing ```
+                if current_length + len(line_with_newline) + 3 > 1900:  # 3 for closing ```
                     chunk_lines.append("```")
                     chunks.append("\n".join(chunk_lines))
                     chunk_lines = ["```", line]
@@ -353,9 +340,7 @@ async def _send_detailed_results(ctx, username, results) -> None:
         current_length = len(current_lines[0]) + 1  # +1 for newline
 
         for item in results["reddit"]:
-            content_preview = item["content"][:200] + (
-                "..." if len(item["content"]) > 200 else ""
-            )
+            content_preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
             item_lines = [
                 "```",
                 f"Time: {item['timestamp']}",
@@ -477,9 +462,7 @@ def update_cooldown(user_id: int) -> None:
     _cooldown_queue.append((now, user_id))
 
 
-@bot.tree.command(
-    name="scan", description="Scan a user across platforms for moderation purposes"
-)
+@bot.tree.command(name="scan", description="Scan a user across platforms for moderation purposes")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
@@ -529,9 +512,7 @@ async def scan_slash(
     # FIX 4: Sanitize username for filename safety
     safe_username = re.sub(r"[^\w\-]", "_", username)
 
-    await interaction.response.send_message(
-        f"🔍 Scanning **{username}** (mode: {scan_mode})..."
-    )
+    await interaction.response.send_message(f"🔍 Scanning **{username}** (mode: {scan_mode})...")
     log.info(
         "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
         interaction.user.name,
@@ -624,9 +605,7 @@ async def scan_slash(
         )
 
 
-@bot.tree.command(
-    name="health", description="Check bot health and service availability"
-)
+@bot.tree.command(name="health", description="Check bot health and service availability")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def health_slash(interaction: discord.Interaction) -> None:
@@ -698,15 +677,9 @@ def main() -> None:
     log.info("Discord Account Scanner Bot v1.3.0")
     log.info("=" * 60)
     log.info("Configuration:")
-    log.info(
-        "  - Discord Token: %s", "✅ Set" if config.discord_token else "❌ Missing"
-    )
-    log.info(
-        "  - Perspective API: %s", "✅ Set" if config.perspective_key else "❌ Missing"
-    )
-    log.info(
-        "  - Reddit API: %s", "✅ Set" if config.has_reddit_config() else "❌ Missing"
-    )
+    log.info("  - Discord Token: %s", "✅ Set" if config.discord_token else "❌ Missing")
+    log.info("  - Perspective API: %s", "✅ Set" if config.perspective_key else "❌ Missing")
+    log.info("  - Reddit API: %s", "✅ Set" if config.has_reddit_config() else "❌ Missing")
     log.info(
         "  - Admin Users: %s",
         len(config.admin_user_ids) if config.admin_user_ids else "None",
@@ -731,9 +704,7 @@ def main() -> None:
         log.error("  1. Go to https://discord.com/developers/applications")
         log.error("  2. Select your application")
         log.error("  3. Go to 'Bot' section")
-        log.error(
-            "  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents"
-        )
+        log.error("  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents")
         sys.exit(1)
     except discord.HTTPException as e:
         log.error("❌ Discord HTTP error: %s (status: %s)", e.text, e.status)
@@ -759,9 +730,7 @@ def main() -> None:
                 pending = asyncio.all_tasks(loop)
                 for task in pending:
                     task.cancel()
-                loop.run_until_complete(
-                    asyncio.gather(*pending, return_exceptions=True)
-                )
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                 log.info("Closing the event loop.")
                 loop.close()
         except (RuntimeError, ValueError) as e:
