@@ -37,9 +37,7 @@ from asyncpraw.models import Redditor
 from asyncprawcore import AsyncPrawcoreException
 
 # Constants
-PERSPECTIVE_URL: Final = (
-    "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
-)
+PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
 ATTRIBUTES: Final = ["TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT"]
@@ -371,9 +369,7 @@ class RedditScanner:
             )
         return {}
 
-    async def _fetch_comments(
-        self, user: Redditor
-    ) -> list[tuple[str, str, str, float]]:
+    async def _fetch_comments(self, user: Redditor) -> list[tuple[str, str, str, float]]:
         """Fetch Reddit comments for a user."""
         items: list[tuple[str, str, str, float]] = []
         async for c in user.comments.new(limit=self.config.comments):
@@ -441,25 +437,19 @@ class RedditScanner:
 
         async def throttled_check(text: str) -> dict[str, float]:
             async with semaphore:
-                result = await self._check_toxicity(
-                    client, text, self.config.api_key or ""
-                )
+                result = await self._check_toxicity(client, text, self.config.api_key or "")
                 # Yield to event loop to prevent blocking Discord heartbeat
                 await asyncio.sleep(0)
                 return result
 
-        results = await asyncio.gather(
-            *[throttled_check(text) for _, _, text, _ in items]
-        )
+        results = await asyncio.gather(*[throttled_check(text) for _, _, text, _ in items])
         # Filter flagged content
         flagged: list[dict[str, Any]] = []
         for (kind, sub, text, ts), scores in zip(items, results, strict=True):
             if any(s >= self.config.threshold for s in scores.values()):
                 flagged.append(
                     {
-                        "timestamp": time.strftime(
-                            "%Y-%m-%d %H:%M:%S", time.localtime(ts)
-                        ),
+                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)),
                         "type": kind,
                         "subreddit": str(sub),
                         "content": text[:500],
@@ -475,9 +465,7 @@ class RedditScanner:
             )
             writer.writeheader()
             writer.writerows(flagged)
-            async with aiofiles.open(
-                self.config.output_reddit, "w", encoding="utf-8"
-            ) as f:
+            async with aiofiles.open(self.config.output_reddit, "w", encoding="utf-8") as f:
                 await f.write(buffer.getvalue())
             log.info(
                 "🤖 Reddit:  Saved %d flagged items → %s",
@@ -516,9 +504,7 @@ class ScannerAPI:
         if config.mode in ("sherlock", "both"):
             if SherlockScanner.available():
                 scanner = SherlockScanner()
-                output_dir = (
-                    config.output_sherlock.parent if config.output_sherlock else None
-                )
+                output_dir = config.output_sherlock.parent if config.output_sherlock else None
                 tasks.append(
                     (
                         "sherlock",
@@ -567,15 +553,11 @@ async def main_async() -> None:
         default="both",
         help="Scan mode",
     )
-    parser.add_argument(
-        "--perspective-api-key", dest="api_key", help="Perspective API key"
-    )
+    parser.add_argument("--perspective-api-key", dest="api_key", help="Perspective API key")
     parser.add_argument("--client-id", help="Reddit client ID")
     parser.add_argument("--client-secret", help="Reddit client secret")
     parser.add_argument("--user-agent", help="Reddit user agent")
-    parser.add_argument(
-        "--comments", type=int, default=50, help="Max comments to fetch"
-    )
+    parser.add_argument("--comments", type=int, default=50, help="Max comments to fetch")
     parser.add_argument("--posts", type=int, default=20, help="Max posts to fetch")
     parser.add_argument(
         "--toxicity-threshold",
@@ -584,15 +566,9 @@ async def main_async() -> None:
         default=0.7,
         help="Toxicity threshold (0-1)",
     )
-    parser.add_argument(
-        "--rate-per-min", type=float, default=60.0, help="API rate limit"
-    )
-    parser.add_argument(
-        "--sherlock-timeout", type=int, default=120, help="Sherlock timeout (s)"
-    )
-    parser.add_argument(
-        "--output-reddit", default="reddit_flagged.csv", help="Reddit output file"
-    )
+    parser.add_argument("--rate-per-min", type=float, default=60.0, help="API rate limit")
+    parser.add_argument("--sherlock-timeout", type=int, default=120, help="Sherlock timeout (s)")
+    parser.add_argument("--output-reddit", default="reddit_flagged.csv", help="Reddit output file")
     parser.add_argument(
         "--output-sherlock",
         default="sherlock_results.json",
