@@ -1,5 +1,5 @@
 # Multi-stage build for optimized production image
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -30,7 +30,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN pip install --no-cache-dir --use-pep517 sherlock-project
 
 # Production stage
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash botuser && \
