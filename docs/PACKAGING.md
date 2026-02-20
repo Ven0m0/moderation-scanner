@@ -10,15 +10,13 @@ This project includes complete Arch Linux packaging support for both release and
 
 | File | Purpose | Source |
 |------|---------|--------|
-| `PKGBUILD` | Release package | Downloads from GitHub tag |
-| `PKGBUILD-local` | Development package | Builds from current directory |
-| `.SRCINFO` | AUR metadata | Generated from PKGBUILD |
+| `config/PKGBUILD` | Release package | Downloads from GitHub tag |
 
 ### Build Scripts
 
 | File | Purpose |
 |------|---------|
-| `build-pkg.sh` | Build helper script |
+| `scripts/build.sh` | Build helper script |
 | `Makefile` | Build automation (see `make pkg`) |
 
 ## Building Packages
@@ -35,7 +33,7 @@ make pkg
 make pkg-install
 
 # Or manually
-./build-pkg.sh
+./scripts/build.sh
 sudo pacman -U account-scanner-git-*.pkg.tar.zst
 ```
 
@@ -121,11 +119,11 @@ python -m account_scanner username --mode reddit
 
 ## Updating Version
 
-### For Release (PKGBUILD)
+### For Release (config/PKGBUILD)
 
 1. **Update version:**
    ```bash
-   # In PKGBUILD
+   # In config/PKGBUILD
    pkgver=1.2.4
    pkgrel=1
    ```
@@ -141,25 +139,10 @@ python -m account_scanner username --mode reddit
    # Or manually: sha256sum downloaded-file.tar.gz
    ```
 
-4. **Update .SRCINFO:**
-   ```bash
-   makepkg --printsrcinfo > .SRCINFO
-   ```
-
-5. **Test build:**
+4. **Test build:**
    ```bash
    makepkg -f
    ```
-
-### For Development (PKGBUILD-local)
-
-No version changes needed - automatically determined from git:
-```bash
-pkgver() {
-  cd "${startdir}"
-  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
-```
 
 ## AUR Submission
 
@@ -230,11 +213,10 @@ sudo pacman -S python-build python-installer python-wheel python-setuptools
 Tests are non-critical for package building. They run with `|| true` to prevent build failure.
 
 ### Version Mismatch
-Ensure `pyproject.toml`, `PKGBUILD`, and `account_scanner.py` all have matching versions:
+Ensure `pyproject.toml` and `config/PKGBUILD` have matching versions:
 ```bash
 grep "version = " pyproject.toml
-grep "pkgver=" PKGBUILD
-grep "account-scanner/" account_scanner.py
+grep "pkgver=" config/PKGBUILD
 ```
 
 ### .SRCINFO Out of Sync
@@ -279,11 +261,10 @@ Future enhancement - could split into:
 ## Best Practices
 
 1. **Always test locally** before AUR push
-2. **Update .SRCINFO** with every PKGBUILD change
-3. **Use `updpkgsums`** instead of manual hash updates
-4. **Version bump `pkgrel`** for packaging fixes (same upstream version)
-5. **Reset `pkgrel=1`** when bumping `pkgver`
-6. **Test installation** in clean chroot before release
+2. **Use `updpkgsums`** instead of manual hash updates
+3. **Version bump `pkgrel`** for packaging fixes (same upstream version)
+4. **Reset `pkgrel=1`** when bumping `pkgver`
+5. **Test installation** in clean chroot before release
 
 ## References
 
