@@ -605,7 +605,7 @@ Recommended maintenance schedule:
 ## Support and Resources
 
 - **GitHub Issues**: https://github.com/Ven0m0/moderation-scanner/issues
-- **Documentation**: See README.md and DEPENDENCY_AUDIT_REPORT.md
+- **Documentation**: See README.md
 - **Discord.py Docs**: https://discordpy.readthedocs.io/
 - **Sherlock Project**: https://github.com/sherlock-project/sherlock
 

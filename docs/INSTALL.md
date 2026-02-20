@@ -15,8 +15,8 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/Ven0m0/account-scanner
-cd account-scanner
+git clone https://github.com/Ven0m0/moderation-scanner
+cd moderation-scanner
 
 # Install in editable mode
 pip install -e .
@@ -63,7 +63,7 @@ make pkg
 make pkg-install
 
 # Or manually
-./build-pkg.sh
+./scripts/build.sh
 sudo pacman -U account-scanner-git-*.pkg.tar.zst
 ```
 
@@ -227,8 +227,8 @@ For contributing or local development:
 
 ```bash
 # Clone and setup
-git clone https://github.com/Ven0m0/account-scanner
-cd account-scanner
+git clone https://github.com/Ven0m0/moderation-scanner
+cd moderation-scanner
 
 # Install in editable mode with dev deps
 make dev

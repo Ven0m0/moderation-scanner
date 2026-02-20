@@ -24,6 +24,11 @@ Welcome to the Account Scanner documentation! This directory contains comprehens
   - Pull request process
   - Project architecture
 
+- [COGS_ARCHITECTURE.md](COGS_ARCHITECTURE.md) - Discord bot cogs architecture
+  - Cogs-based command organization
+  - Adding new cogs and commands
+  - Hot-reload development workflow
+
 ## Packaging
 
 - [PACKAGING.md](PACKAGING.md) - Package building and distribution

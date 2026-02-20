@@ -89,7 +89,7 @@ fly secrets set ADMIN_USER_IDS="123456789012345678"
 
 ### 5. Rate Limiting
 
-Current settings in discord_bot.py:132:
+Current settings in `cogs/moderation.py`:
 ```python
 @commands.cooldown(1, 30, commands.BucketType.user)  # 1 scan per 30s per user
 ```
@@ -120,7 +120,7 @@ free -h
 
 ### 2. Scan Timeout Configuration
 
-In discord_bot.py:26:
+In `cogs/moderation.py`:
 ```python
 SCAN_TIMEOUT: Final = 300  # 5 minutes
 ```
@@ -306,10 +306,10 @@ The scanner has built-in rate limiting:
 ### Current Error Handling
 
 The bot handles:
-- Missing permissions (discord_bot.py:118)
-- Missing arguments (discord_bot.py:122)
-- Cooldown violations (discord_bot.py:124)
-- Command errors (discord_bot.py:127)
+- Missing permissions
+- Missing arguments
+- Cooldown violations
+- Command errors
 
 ### Common Errors & Solutions
 
@@ -326,7 +326,7 @@ fly secrets set REDDIT_CLIENT_ID="..." \
 - If missing, rebuild: `fly deploy`
 
 **3. "Scan timed out"**
-- Increase `SCAN_TIMEOUT` in discord_bot.py:26
+- Increase `SCAN_TIMEOUT` in `cogs/moderation.py`
 - Use specific scan modes (`!scan username reddit`)
 
 **4. Out of Memory**
