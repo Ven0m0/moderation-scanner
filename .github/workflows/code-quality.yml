@@ -25,37 +25,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           python-version-file: "pyproject.toml"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
       - name: Install dependencies
         run: |
-          uv pip install -e ".[dev]"
+          uv sync --extra dev
 
       - name: Run Ruff check
         id: ruff
         run: |
           echo "## Ruff Linting Results" >> $GITHUB_STEP_SUMMARY
-          ruff check . --output-format=github --statistics || true
+          uv run ruff check . --output-format=github --statistics || true
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Run Ruff format check
         id: format
         run: |
           echo "## Ruff Format Check" >> $GITHUB_STEP_SUMMARY
-          ruff format --check --diff . || echo "format_issues=true" >> $GITHUB_OUTPUT
+          uv run ruff format --check --diff . || echo "format_issues=true" >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Run type check
         id: mypy
         run: |
           echo "## MyPy Type Check" >> $GITHUB_STEP_SUMMARY
-          mypy account_scanner.py --show-error-codes --pretty || true
+          uv run mypy account_scanner.py --show-error-codes --pretty || true
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Calculate code metrics
