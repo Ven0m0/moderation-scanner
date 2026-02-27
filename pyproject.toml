@@ -3,7 +3,7 @@ name = "account-scanner"
 version = "1.2.3"
 description = "Multi-source account scanner: Reddit toxicity + Sherlock OSINT"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = {text = "MIT"}
 authors = [{name = "Ven0m0"}]
 keywords = ["osint", "reddit", "toxicity", "sherlock", "security"]
