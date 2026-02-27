@@ -46,7 +46,7 @@ build-backend = "setuptools.build_meta"
 py-modules = ["account_scanner", "discord_bot"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 strict = true
 warn_unreachable = true
 warn_unused_ignores = true
