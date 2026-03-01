@@ -1,11 +1,15 @@
 # Multi-stage build for optimized production image
 FROM python:3.14-slim AS builder
 
+WORKDIR /app
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONOPTIMIZE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LC_ALL=C \
     DEBIAN_FRONTEND=noninteractive
 
@@ -14,9 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential && \
     apt-get autoremove --purge -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
-WORKDIR /app
 
 # Copy dependency files
 COPY pyproject.toml ./
@@ -40,7 +41,7 @@ RUN useradd -m -u 1000 -s /bin/bash botuser && \
 WORKDIR /app
 
 # Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -62,6 +63,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
     PYTHONOPTIMIZE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LC_ALL=C \
     PATH="/home/botuser/.local/bin:$PATH"
 
