@@ -16,9 +16,11 @@ dockerfile = "Dockerfile"
   PYTHONHASHSEED = "0"
   PYTHONIOENCODING = "utf-8"
   PYTHONOPTIMIZE = "1"
+  LC_ALL = "C.UTF-8"
+  NODE_ENV = "production"
+  NODE_OPTIONS = "--max-old-space-size=1536"
 
 [vm]
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-
