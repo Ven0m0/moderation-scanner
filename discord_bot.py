@@ -175,7 +175,9 @@ class ModerationBot(commands.Bot):
         elif isinstance(error, commands.CheckFailure):
             await ctx.send("❌ You don't have permission to use this command.")
         elif isinstance(error, commands.CommandInvokeError):
-            log.error("Command error in %s: %s", ctx.command, error.original, exc_info=error.original)
+            log.error(
+                "Command error in %s: %s", ctx.command, error.original, exc_info=error.original
+            )
             await ctx.send("❌ An error occurred while processing your command.")
         else:
             log.error("Command error in %s: %s", ctx.command, error, exc_info=error)
@@ -197,12 +199,9 @@ class ModerationBot(commands.Bot):
                 f"⏱️ Cooldown: try again in {error.retry_after:.1f}s",
                 ephemeral=True,
             )
-        elif isinstance(error, discord.app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.",
-                ephemeral=True,
-            )
-        elif isinstance(error, discord.app_commands.CheckFailure):
+        elif isinstance(
+            error, (discord.app_commands.MissingPermissions, discord.app_commands.CheckFailure)
+        ):
             await interaction.response.send_message(
                 "❌ You don't have permission to use this command.",
                 ephemeral=True,

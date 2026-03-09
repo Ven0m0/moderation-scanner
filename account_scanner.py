@@ -211,6 +211,11 @@ class SherlockScanner:
         return shutil.which("sherlock") is not None
 
     @staticmethod
+    def _is_claimed(status: str) -> bool:
+        """Check if a status string indicates a claimed account."""
+        return status.lower() in ("claimed", "found!")
+
+    @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
         """Parse Sherlock stdout output into structured data."""
         seen: set[tuple[str, str]] = set()
