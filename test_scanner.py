@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Basic tests for account scanner."""
 
-import asyncio
-import time
 from unittest.mock import AsyncMock, patch
 
 import pytest

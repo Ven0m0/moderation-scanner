@@ -197,12 +197,7 @@ class ModerationBot(commands.Bot):
                 f"⏱️ Cooldown: try again in {error.retry_after:.1f}s",
                 ephemeral=True,
             )
-        elif isinstance(error, discord.app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.",
-                ephemeral=True,
-            )
-        elif isinstance(error, discord.app_commands.CheckFailure):
+        elif isinstance(error, (discord.app_commands.MissingPermissions, discord.app_commands.CheckFailure)):
             await interaction.response.send_message(
                 "❌ You don't have permission to use this command.",
                 ephemeral=True,
