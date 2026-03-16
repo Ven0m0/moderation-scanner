@@ -54,6 +54,10 @@ log = logging.getLogger(__name__)
 _http_client: httpx.AsyncClient | None = None
 _http_client_lock = asyncio.Lock()
 
+# Cached availability of Sherlock (performance optimization)
+_sherlock_available: bool | None = None
+_sherlock_lock = asyncio.Lock()
+
 # TTL-based cache for scan results (performance optimization)
 _scan_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 _cache_lock = asyncio.Lock()
@@ -206,9 +210,21 @@ class SherlockScanner:
     """Handles Sherlock OSINT username enumeration across platforms."""
 
     @staticmethod
-    def available() -> bool:
-        """Check if Sherlock is installed and available."""
-        return shutil.which("sherlock") is not None
+    async def available() -> bool:
+        """Check if Sherlock is installed and available (cached)."""
+        global _sherlock_available
+        if _sherlock_available is not None:
+            return _sherlock_available
+
+        async with _sherlock_lock:
+            # Double-check after acquiring lock
+            if _sherlock_available is not None:
+                return _sherlock_available
+
+            # Check if sherlock is in PATH using a thread to avoid blocking the event loop
+            path = await asyncio.to_thread(shutil.which, "sherlock")
+            _sherlock_available = path is not None
+            return _sherlock_available
 
     @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
@@ -502,7 +518,7 @@ class ScannerAPI:
         }
         tasks: list[tuple[str, Any]] = []
         if config.mode in ("sherlock", "both"):
-            if SherlockScanner.available():
+            if await SherlockScanner.available():
                 scanner = SherlockScanner()
                 output_dir = config.output_sherlock.parent if config.output_sherlock else None
                 tasks.append(

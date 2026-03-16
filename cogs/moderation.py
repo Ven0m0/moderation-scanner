@@ -232,7 +232,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             await ctx.send("❌ Reddit scanning not configured on this bot", ephemeral=True)
             return
 
-        if mode in ("sherlock", "both") and not SherlockScanner.available():
+        if mode in ("sherlock", "both") and not await SherlockScanner.available():
             await ctx.send("❌ Sherlock not available on this bot", ephemeral=True)
             return
 
