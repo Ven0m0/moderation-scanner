@@ -1,7 +1,9 @@
 import unittest
+
 from account_scanner import RateLimiter, ScanConfig, SherlockScanner
 
 DEFAULT_THRESHOLD = 0.7
+
 
 class TestScanner(unittest.TestCase):
     def test_config_validation(self):
