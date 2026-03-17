@@ -47,20 +47,16 @@ class TestBotConfig(unittest.TestCase):
 
     def test_parse_log_channel(self):
         """Test parsing of LOG_CHANNEL_ID environment variable."""
-        # Valid input
-        with patch.dict(os.environ, {"LOG_CHANNEL_ID": "789"}, clear=True):
-            config = BotConfig()
-            self.assertEqual(config.log_channel_id, 789)
-
-        # Empty input
-        with patch.dict(os.environ, {"LOG_CHANNEL_ID": ""}, clear=True):
-            config = BotConfig()
-            self.assertIsNone(config.log_channel_id)
-
-        # Invalid input (should log warning and return None)
-        with patch.dict(os.environ, {"LOG_CHANNEL_ID": "abc"}, clear=True):
-            config = BotConfig()
-            self.assertIsNone(config.log_channel_id)
+        cases = {
+            "valid input": ("789", 789),
+            "empty input": ("", None),
+            "invalid input": ("abc", None),
+        }
+        for name, (env_val, expected) in cases.items():
+            with self.subTest(name):
+                with patch.dict(os.environ, {"LOG_CHANNEL_ID": env_val}, clear=True):
+                    config = BotConfig()
+                    self.assertEqual(config.log_channel_id, expected)
 
     def test_has_reddit_config(self):
         """Test that has_reddit_config correctly identifies complete Reddit setup."""
