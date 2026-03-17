@@ -24,9 +24,9 @@ def test_rate_limiter_init() -> None:
     assert limiter.delay == 1.0
 
 
-def test_sherlock_available() -> None:
+async def test_sherlock_available() -> None:
     """Test Sherlock availability check."""
-    result = SherlockScanner.available()
+    result = await SherlockScanner.available()
     assert isinstance(result, bool)
 
 
@@ -46,7 +46,6 @@ def test_sherlock_status(status: str, expected: bool) -> None:
     assert SherlockScanner._is_claimed(status) == expected
 
 
-@pytest.mark.anyio
 async def test_rate_limiter_wait_immediate():
     """Test that RateLimiter.wait executes immediately on first call."""
     limiter = RateLimiter(60.0)
@@ -59,7 +58,6 @@ async def test_rate_limiter_wait_immediate():
         assert limiter.last_call == 100.0
 
 
-@pytest.mark.anyio
 async def test_rate_limiter_wait_sleep():
     """Test that RateLimiter.wait sleeps when called too soon."""
     limiter = RateLimiter(60.0)  # 1s delay
@@ -74,7 +72,6 @@ async def test_rate_limiter_wait_sleep():
         assert limiter.last_call == 100.5
 
 
-@pytest.mark.anyio
 async def test_rate_limiter_wait_no_sleep_after_delay():
     """Test that RateLimiter.wait doesn't sleep after sufficient time."""
     limiter = RateLimiter(60.0)
@@ -89,7 +86,6 @@ async def test_rate_limiter_wait_no_sleep_after_delay():
         assert limiter.last_call == 101.5
 
 
-@pytest.mark.anyio
 async def test_rate_limiter_wait_updates_last_call():
     """Test that RateLimiter.wait updates last_call after sleep."""
     limiter = RateLimiter(60.0)

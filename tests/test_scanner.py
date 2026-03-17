@@ -20,7 +20,7 @@ class TestScanner(unittest.TestCase):
 
     def test_sherlock_available(self):
         """Test Sherlock availability check."""
-        result = SherlockScanner.available()
+        result = SherlockScanner.available_sync()
         self.assertIsInstance(result, bool)
 
 

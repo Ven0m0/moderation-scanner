@@ -23,7 +23,9 @@ import logging
 import re
 import shutil
 import sys
+import threading
 import time
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -35,6 +37,9 @@ import uvloop
 from asyncpraw import Reddit
 from asyncpraw.models import Redditor
 from asyncprawcore import AsyncPrawcoreException
+
+# Thread-safe lock for Sherlock availability cache used by the sync API.
+_sherlock_available_thread_lock = threading.Lock()
 
 # Constants
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
@@ -53,6 +58,10 @@ log = logging.getLogger(__name__)
 # Shared HTTP client for connection reuse (performance optimization)
 _http_client: httpx.AsyncClient | None = None
 _http_client_lock = asyncio.Lock()
+
+# Cached availability of Sherlock (performance optimization)
+_sherlock_available: bool | None = None
+_sherlock_lock = asyncio.Lock()
 
 # TTL-based cache for scan results (performance optimization)
 _scan_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -206,9 +215,55 @@ class SherlockScanner:
     """Handles Sherlock OSINT username enumeration across platforms."""
 
     @staticmethod
-    def available() -> bool:
-        """Check if Sherlock is installed and available."""
-        return shutil.which("sherlock") is not None
+    async def available() -> bool:
+        """Check if Sherlock is installed and available (cached)."""
+        global _sherlock_available
+        cached = _sherlock_available
+        if cached is not None:
+            return cached
+
+        async with _sherlock_lock:
+            # Double-check after acquiring lock
+            cached = _sherlock_available
+            if cached is not None:
+                return cached
+
+            # Check if sherlock is in PATH using a thread to avoid blocking the event loop
+            path = await asyncio.to_thread(shutil.which, "sherlock")
+            _sherlock_available = path is not None
+            return _sherlock_available
+
+    @staticmethod
+    def available_sync() -> bool:
+        """Synchronous wrapper around :meth:`available` for non-async callers.
+
+        This preserves a synchronous API surface for external/library code that
+        cannot use ``await SherlockScanner.available()`` directly.
+
+        Implementation note:
+        --------------------
+        This method intentionally avoids driving the async implementation via
+        ``asyncio.run()`` or any event loop, because the async path uses an
+        ``asyncio.Lock`` that is bound to a specific event loop. Instead, we
+        perform a simple, direct synchronous availability check and cache the
+        result in ``_sherlock_available`` using a dedicated threading lock.
+        """
+        global _sherlock_available, _sherlock_available_thread_lock
+
+        # Fast-path with thread-safe cache: avoid any event-loop interaction.
+        with _sherlock_available_thread_lock:
+            if _sherlock_available is not None:
+                return _sherlock_available
+
+            # Direct synchronous check: is the Sherlock executable on PATH?
+            available = shutil.which("sherlock") is not None
+            _sherlock_available = available
+            return available
+
+    @staticmethod
+    def _is_claimed(status: str) -> bool:
+        """Check if a status string indicates a claimed account."""
+        return status.lower() in ("claimed", "found!")
 
     @staticmethod
     def _is_claimed(status: str) -> bool:
@@ -507,7 +562,7 @@ class ScannerAPI:
         }
         tasks: list[tuple[str, Any]] = []
         if config.mode in ("sherlock", "both"):
-            if SherlockScanner.available():
+            if await SherlockScanner.available():
                 scanner = SherlockScanner()
                 output_dir = config.output_sherlock.parent if config.output_sherlock else None
                 tasks.append(

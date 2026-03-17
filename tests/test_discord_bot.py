@@ -55,10 +55,12 @@ class TestBotConfig(unittest.TestCase):
             "invalid input": ("abc", None),
         }
         for name, (env_val, expected) in cases.items():
-            with self.subTest(name):
-                with patch.dict(os.environ, {"LOG_CHANNEL_ID": env_val}, clear=True):
-                    config = BotConfig()
-                    self.assertEqual(config.log_channel_id, expected)
+            with (
+                self.subTest(name),
+                patch.dict(os.environ, {"LOG_CHANNEL_ID": env_val}, clear=True),
+            ):
+                config = BotConfig()
+                self.assertEqual(config.log_channel_id, expected)
 
     def test_has_reddit_config(self):
         """Test that has_reddit_config correctly identifies complete Reddit setup."""
@@ -78,7 +80,10 @@ class TestBotConfig(unittest.TestCase):
             del bad_env[key]
             with patch.dict(os.environ, bad_env, clear=True):
                 config = BotConfig()
-                self.assertFalse(config.has_reddit_config(), f"Should be False when {key} is missing")
+                self.assertFalse(
+                    config.has_reddit_config(), f"Should be False when {key} is missing"
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

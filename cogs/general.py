@@ -53,7 +53,7 @@ class GeneralCog(commands.Cog, name="General"):
             inline=False,
         )
         services = []
-        services.append(f"{'✅' if SherlockScanner.available() else '❌'} Sherlock OSINT")
+        services.append(f"{'✅' if await SherlockScanner.available() else '❌'} Sherlock OSINT")
         services.append(f"{'✅' if self.config.perspective_key else '❌'} Perspective API")
         services.append(f"{'✅' if self.config.has_reddit_config() else '❌'} Reddit API")
         embed.add_field(name="Services", value="\n".join(services), inline=False)
