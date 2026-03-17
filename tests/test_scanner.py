@@ -23,5 +23,6 @@ class TestScanner(unittest.TestCase):
         result = SherlockScanner.available()
         self.assertIsInstance(result, bool)
 
+
 if __name__ == "__main__":
     unittest.main()
