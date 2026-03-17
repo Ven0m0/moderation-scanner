@@ -27,6 +27,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
+import threading
 
 import aiofiles
 import httpx
@@ -225,6 +226,49 @@ class SherlockScanner:
             path = await asyncio.to_thread(shutil.which, "sherlock")
             _sherlock_available = path is not None
             return _sherlock_available
+
+    @staticmethod
+    def available_sync() -> bool:
+        """Synchronous wrapper around :meth:`available` for non-async callers.
+
+        This preserves a synchronous API surface for external/library code that
+        cannot use ``await SherlockScanner.available()`` directly.
+        """
+        global _sherlock_available
+        # Fast-path: return cached value without touching the event loop.
+        if _sherlock_available is not None:
+            return _sherlock_available
+
+        async def _runner() -> bool:
+            return await SherlockScanner.available()
+
+        try:
+            # Detect whether we're already inside a running event loop.
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop: safe to use asyncio.run directly.
+            return asyncio.run(_runner())
+        else:
+            # Running inside an event loop: execute the async logic in a
+            # separate thread with its own event loop to avoid interference.
+            result: bool | None = None
+            exc: BaseException | None = None
+
+            def _thread_target() -> None:
+                nonlocal result, exc
+                try:
+                    result = asyncio.run(_runner())
+                except BaseException as e:
+                    exc = e
+
+            thread = threading.Thread(target=_thread_target)
+            thread.start()
+            thread.join()
+
+            if exc is not None:
+                raise exc
+            assert result is not None
+            return result
 
     @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
