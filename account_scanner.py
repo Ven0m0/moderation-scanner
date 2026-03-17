@@ -37,6 +37,9 @@ from asyncpraw import Reddit
 from asyncpraw.models import Redditor
 from asyncprawcore import AsyncPrawcoreException
 
+# Thread-safe lock for Sherlock availability cache used by the sync API.
+_sherlock_available_thread_lock = threading.Lock()
+
 # Constants
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
@@ -233,42 +236,26 @@ class SherlockScanner:
 
         This preserves a synchronous API surface for external/library code that
         cannot use ``await SherlockScanner.available()`` directly.
+
+        Implementation note:
+        --------------------
+        This method intentionally avoids driving the async implementation via
+        ``asyncio.run()`` or any event loop, because the async path uses an
+        ``asyncio.Lock`` that is bound to a specific event loop. Instead, we
+        perform a simple, direct synchronous availability check and cache the
+        result in ``_sherlock_available`` using a dedicated threading lock.
         """
-        global _sherlock_available
-        # Fast-path: return cached value without touching the event loop.
-        if _sherlock_available is not None:
-            return _sherlock_available
+        global _sherlock_available, _sherlock_available_thread_lock
 
-        async def _runner() -> bool:
-            return await SherlockScanner.available()
+        # Fast-path with thread-safe cache: avoid any event-loop interaction.
+        with _sherlock_available_thread_lock:
+            if _sherlock_available is not None:
+                return _sherlock_available
 
-        try:
-            # Detect whether we're already inside a running event loop.
-            asyncio.get_running_loop()
-        except RuntimeError:
-            # No running loop: safe to use asyncio.run directly.
-            return asyncio.run(_runner())
-        else:
-            # Running inside an event loop: execute the async logic in a
-            # separate thread with its own event loop to avoid interference.
-            result: bool | None = None
-            exc: BaseException | None = None
-
-            def _thread_target() -> None:
-                nonlocal result, exc
-                try:
-                    result = asyncio.run(_runner())
-                except BaseException as e:
-                    exc = e
-
-            thread = threading.Thread(target=_thread_target)
-            thread.start()
-            thread.join()
-
-            if exc is not None:
-                raise exc
-            assert result is not None
-            return result
+            # Direct synchronous check: is the Sherlock executable on PATH?
+            available = shutil.which("sherlock") is not None
+            _sherlock_available = available
+            return available
 
     @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
