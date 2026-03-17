@@ -22,7 +22,6 @@ def test_rate_limiter_init() -> None:
     assert limiter.delay == 1.0
 
 
-@pytest.mark.anyio
 async def test_sherlock_available() -> None:
     """Test Sherlock availability check."""
     result = await SherlockScanner.available()
