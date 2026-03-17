@@ -64,7 +64,7 @@ class TestBotConfig(unittest.TestCase):
         env = {
             "PERSPECTIVE_API_KEY": "key",
             "REDDIT_CLIENT_ID": "id",
-            "REDDIT_CLIENT_SECRET": "secret"
+            "REDDIT_CLIENT_SECRET": "secret",
         }
         with patch.dict(os.environ, env, clear=True):
             config = BotConfig()
