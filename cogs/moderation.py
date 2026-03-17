@@ -99,9 +99,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
         """
         # Sherlock results
         if results.get("sherlock"):
-            lines = [
-                f"{account['platform']}: {account['url']}" for account in results["sherlock"]
-            ]
+            lines = [f"{account['platform']}: {account['url']}" for account in results["sherlock"]]
             sherlock_text = (
                 f"**🔎 Sherlock OSINT Results for {username}:**\n```\n" + "\n".join(lines) + "\n```"
             )

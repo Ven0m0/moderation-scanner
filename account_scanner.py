@@ -23,11 +23,11 @@ import logging
 import re
 import shutil
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
-import threading
 
 import aiofiles
 import httpx
@@ -214,13 +214,15 @@ class SherlockScanner:
     async def available() -> bool:
         """Check if Sherlock is installed and available (cached)."""
         global _sherlock_available
-        if _sherlock_available is not None:
-            return _sherlock_available
+        cached = _sherlock_available
+        if cached is not None:
+            return cached
 
         async with _sherlock_lock:
             # Double-check after acquiring lock
-            if _sherlock_available is not None:
-                return _sherlock_available
+            cached = _sherlock_available
+            if cached is not None:
+                return cached
 
             # Check if sherlock is in PATH using a thread to avoid blocking the event loop
             path = await asyncio.to_thread(shutil.which, "sherlock")
@@ -269,6 +271,11 @@ class SherlockScanner:
                 raise exc
             assert result is not None
             return result
+
+    @staticmethod
+    def _is_claimed(status: str) -> bool:
+        """Check if a status string indicates a claimed account."""
+        return status.lower() in ("claimed", "found!")
 
     @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
