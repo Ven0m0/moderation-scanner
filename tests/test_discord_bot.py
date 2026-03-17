@@ -1,8 +1,10 @@
-import unittest
-import os
 import logging
+import os
+import unittest
 from unittest.mock import patch
+
 from discord_bot import BotConfig, ConfigurationError
+
 
 class TestBotConfig(unittest.TestCase):
     def setUp(self):
