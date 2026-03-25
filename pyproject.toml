@@ -16,12 +16,12 @@ classifiers = [
 ]
 
 dependencies = [
-  "httpx[http2]~=0.28.1",  # Updated to latest patch version
-  "orjson>=3.11.5,<4.0.0",  # Updated to latest stable version
-  "asyncpraw>=7.8.1,<8.0.0",  # Updated to latest version
-  "uvloop~=0.22.1; platform_system != 'Windows'",  # Updated to latest patch version
-  "aiofiles~=25.1",  # Already at latest version
-  "discord.py>=2.0.0,<3.0.0",  # Discord API wrapper with app_commands support
+  "httpx[http2]~=0.28.1",
+  "orjson>=3.11.5,<4.0.0",
+  "asyncpraw>=7.8.1,<8.0.0",
+  "uvloop~=0.22.1; platform_system != 'Windows'",
+  "aiofiles~=25.1",
+  "discord.py>=2.0.0,<3.0.0",
 ]
 
 [project.optional-dependencies]

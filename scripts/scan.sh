@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # shellcheck enable=all shell=bash source-path=SCRIPTDIR
-set -euo pipefail; shopt -s nullglob globstar
+set -euo pipefail
+shopt -s nullglob globstar
 IFS=$'\n\t' LC_ALL=C
 
-has(){ command -v -- "$1" &>/dev/null; }
-err(){ printf '%s\n' "$*" >&2; }
-die(){ err "$@"; exit 1; }
+has() { command -v -- "$1" &>/dev/null; }
+err() { printf '%s\n' "$*" >&2; }
+die() {
+  err "$@"
+  exit 1
+}
 
-readonly SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly SCRIPT_DIR
 readonly SCANNER="${SCRIPT_DIR}/../account_scanner.py"
 readonly CREDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/account_scanner/credentials"
 

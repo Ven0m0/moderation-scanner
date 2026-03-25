@@ -25,7 +25,6 @@ import shutil
 import sys
 import threading
 import time
-import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -102,7 +101,6 @@ async def get_cached_result(cache_key: str) -> dict[str, Any] | None:
                 log.info("📦 Cache hit for '%s'", cache_key)
                 return result
             else:
-                # Expired, remove it
                 del _scan_cache[cache_key]
     return None
 
@@ -200,7 +198,7 @@ class ScanConfig:
     verbose: bool = False
 
     def __post_init__(self) -> None:
-        # FIX 4: Sanitize username to prevent path traversal if used in filenames
+        # Sanitize username to prevent path traversal if used in filenames
         # Allows alphanumeric, underscores, and hyphens only.
         self.username = re.sub(r"[^\w\-]", "_", self.username)
 
@@ -266,18 +264,13 @@ class SherlockScanner:
         return status.lower() in ("claimed", "found!")
 
     @staticmethod
-    def _is_claimed(status: str) -> bool:
-        """Check if a status string indicates a claimed account."""
-        return status.lower() in ("claimed", "found!")
-
-    @staticmethod
     def _parse_stdout(text: str) -> list[dict[str, Any]]:
         """Parse Sherlock stdout output into structured data."""
         seen: set[tuple[str, str]] = set()
         results: list[dict[str, Any]] = []
         for raw_line in text.splitlines():
             stripped_line = raw_line.strip()
-            # FIX 1: Relaxed parsing to accept single space ": "
+            # Relaxed parsing to accept single space ": "
             if "://" not in stripped_line or ": " not in stripped_line:
                 continue
             # Remove timestamp prefix if present
@@ -315,7 +308,7 @@ class SherlockScanner:
         """Run Sherlock OSINT scan for the given username."""
         log.info("🔎 Sherlock:  Scanning '%s'.. .", username)
 
-        # FIX 5: Added "--" to prevent argument injection
+        # Added "--" to prevent argument injection
         cmd = [
             "sherlock",
             "--",
@@ -386,7 +379,6 @@ class RedditScanner:
           config: ScanConfig with Reddit/Perspective API credentials.
         """
         self.config = config
-        # FIX 2: Reuse shared limiter if provided, else create new
         if config.limiter:
             self.limiter = config.limiter
         else:

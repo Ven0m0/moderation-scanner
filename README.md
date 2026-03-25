@@ -115,7 +115,7 @@ optional arguments:
   --toxicity-threshold T
                         Toxicity threshold 0-1 (default: 0.7)
   --rate-per-min N      API rate limit (default: 60)
-  --sherlock-timeout N  Sherlock timeout seconds (default: 60)
+  --sherlock-timeout N  Sherlock timeout seconds (default: 120)
   --output-reddit FILE  Reddit output (default: reddit_flagged.csv)
   --output-sherlock FILE
                         Sherlock output (default: sherlock_results.json)
@@ -218,7 +218,7 @@ See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
 moderation-scanner/
 ├── account_scanner.py         # Core scanner library (Reddit + Sherlock)
 ├── discord_bot.py             # Discord bot integration
-├── test-scanner.py            # Test suite
+├── test_scanner.py            # Test suite
 ├── scripts/
 │   ├── scan.sh                # Wrapper script for CLI usage
 │   ├── build.sh               # Build helper script
