@@ -3,9 +3,12 @@
 set -euo pipefail
 IFS=$'\n\t' LC_ALL=C
 
-has(){ command -v -- "$1" &>/dev/null; }
-msg(){ printf '%s\n' "$@"; }
-die(){ printf '%s\n' "$1" >&2; exit "${2:-1}"; }
+has() { command -v -- "$1" &>/dev/null; }
+msg() { printf '%s\n' "$@"; }
+die() {
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
+}
 
 has makepkg || die "makepkg not found - install 'base-devel'"
 has python || die "python not found"

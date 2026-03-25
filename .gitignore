@@ -51,7 +51,7 @@ dmypy.json
 # Output files
 *.csv
 *.json
-!pyproject.json
+!renovate.json
 
 # Credentials
 credentials
@@ -67,6 +67,5 @@ Thumbs.db
 *.log
 *.bak
 
-.env
 .pem
 secrets/
