@@ -11,7 +11,7 @@ from discord_bot import BotConfig, ConfigurationError
 
 
 @pytest.fixture(autouse=True)
-def _silence_logs() -> Generator[None, None, None]:
+def _silence_logs() -> Generator[None]:
     logging.disable(logging.CRITICAL)
     yield
     logging.disable(logging.NOTSET)
