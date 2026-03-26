@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import sys
+from typing import Any
 
 import discord
 import uvloop
@@ -46,11 +47,7 @@ class BotConfig:
         self.log_channel_id = self._parse_log_channel()
 
     def _parse_admin_ids(self) -> set[int]:
-        """Parse admin user IDs from environment variable.
-
-        Returns:
-            Set of admin user IDs.
-        """
+        """Parse admin user IDs from ADMIN_USER_IDS environment variable."""
         admin_ids_str = os.getenv("ADMIN_USER_IDS", "")
         if not admin_ids_str:
             return set()
@@ -61,11 +58,7 @@ class BotConfig:
             return set()
 
     def _parse_log_channel(self) -> int | None:
-        """Parse log channel ID from environment variable.
-
-        Returns:
-            Log channel ID or None if not set.
-        """
+        """Parse log channel ID from LOG_CHANNEL_ID environment variable."""
         channel_id = os.getenv("LOG_CHANNEL_ID")
         if not channel_id:
             return None
@@ -92,51 +85,35 @@ class BotConfig:
             log.warning("Reddit credentials not set - Reddit scanning disabled")
 
     def has_reddit_config(self) -> bool:
-        """Check if Reddit configuration is complete.
-
-        Returns:
-            True if all Reddit configuration is present.
-        """
+        """Return True if all Reddit configuration fields are present."""
         return bool(self.perspective_key and self.reddit_client_id and self.reddit_client_secret)
 
 
 class ModerationBot(commands.Bot):
     """Custom bot class with cog loading support."""
 
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize the bot.
-
-        Args:
-            *args: Positional arguments to pass to commands.Bot.
-            **kwargs: Keyword arguments to pass to commands.Bot.
-        """
+    # Any is required here: commands.Bot.__init__ lacks stubs and accepts
+    # arbitrary kwargs (command_prefix, intents, help_command, …).
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.config = BotConfig()
 
     async def setup_hook(self) -> None:
-        """Called when the bot is setting up.
-
-        This is where we load all cogs.
-        """
+        """Load all cogs on startup."""
         log.info("Loading cogs...")
-
-        # Load all cogs from the cogs directory
-        cogs_to_load = ["cogs.general", "cogs.moderation", "cogs.admin"]
-
-        for cog in cogs_to_load:
+        for cog in ("cogs.general", "cogs.moderation", "cogs.admin"):
             try:
                 await self.load_extension(cog)
                 log.info("✅ Loaded cog: %s", cog)
-            except Exception as e:
-                log.error("❌ Failed to load cog %s: %s", cog, e, exc_info=True)
+            except Exception as exc:
+                log.error("❌ Failed to load cog %s: %s", cog, exc, exc_info=True)
 
     async def on_ready(self) -> None:
-        """Called when the bot is ready."""
+        """Sync slash commands once the bot is fully connected."""
+        assert self.user is not None  # Always set when on_ready fires
         log.info("=" * 60)
         log.info("Bot ready: %s (ID: %s)", self.user.name, self.user.id)
         log.info("Connected to %d guilds", len(self.guilds))
-
-        # Sync slash commands
         try:
             log.info("Syncing slash commands...")
             synced = await self.tree.sync()
@@ -145,123 +122,96 @@ class ModerationBot(commands.Bot):
                 len(synced),
                 [cmd.name for cmd in synced],
             )
-        except discord.HTTPException as e:
-            log.error("❌ Failed to sync commands (HTTP %s): %s", e.status, e.text)
+        except discord.HTTPException as exc:
+            log.error("❌ Failed to sync commands (HTTP %s): %s", exc.status, exc.text)
             log.error("This may be due to invalid application configuration")
-        except discord.DiscordException as e:
-            log.error("❌ Failed to sync commands: %s", e)
-
+        except discord.DiscordException as exc:
+            log.error("❌ Failed to sync commands: %s", exc)
         log.info("=" * 60)
 
-    async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
-        """Handle command errors.
-
-        Args:
-            ctx: The command context.
-            error: The error that occurred.
-        """
-        # Ignore command not found errors
+    async def on_command_error(
+        self,
+        ctx: commands.Context[Any],
+        error: Exception,
+    ) -> None:
+        """Handle prefix command errors."""
         if isinstance(error, commands.CommandNotFound):
             return
-
-        if isinstance(error, commands.MissingPermissions):
-            await ctx.send("❌ You don't have permission to use this command.")
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"❌ Missing argument: {error.param.name}")
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send(f"❌ Invalid argument: {error}")
-        elif isinstance(error, commands.CommandOnCooldown):
-            await ctx.send(f"⏱️ Cooldown: try again in {error.retry_after:.1f}s")
-        elif isinstance(error, commands.CheckFailure):
-            await ctx.send("❌ You don't have permission to use this command.")
-        elif isinstance(error, commands.CommandInvokeError):
-            log.error(
-                "Command error in %s: %s", ctx.command, error.original, exc_info=error.original
-            )
-            await ctx.send("❌ An error occurred while processing your command.")
-        else:
-            log.error("Command error in %s: %s", ctx.command, error, exc_info=error)
-            await ctx.send("❌ An error occurred while processing your command.")
+        match error:
+            case commands.MissingPermissions() | commands.CheckFailure():
+                await ctx.send("❌ You don't have permission to use this command.")
+            case commands.MissingRequiredArgument():
+                await ctx.send(f"❌ Missing argument: {error.param.name}")
+            case commands.BadArgument():
+                await ctx.send(f"❌ Invalid argument: {error}")
+            case commands.CommandOnCooldown():
+                await ctx.send(f"⏱️ Cooldown: try again in {error.retry_after:.1f}s")
+            case commands.CommandInvokeError():
+                log.error(
+                    "Command error in %s: %s", ctx.command, error.original, exc_info=error.original
+                )
+                await ctx.send("❌ An error occurred while processing your command.")
+            case _:
+                log.error("Command error in %s: %s", ctx.command, error, exc_info=error)
+                await ctx.send("❌ An error occurred while processing your command.")
 
     async def on_app_command_error(
         self,
         interaction: discord.Interaction,
         error: discord.app_commands.AppCommandError,
     ) -> None:
-        """Handle app command (slash command) errors.
+        """Handle slash command errors."""
+        cmd_name = interaction.command.name if interaction.command else "unknown"
 
-        Args:
-            interaction: The interaction that triggered the error.
-            error: The error that occurred.
-        """
-        if isinstance(error, discord.app_commands.CommandOnCooldown):
-            await interaction.response.send_message(
-                f"⏱️ Cooldown: try again in {error.retry_after:.1f}s",
-                ephemeral=True,
-            )
-        elif isinstance(
-            error, (discord.app_commands.MissingPermissions, discord.app_commands.CheckFailure)
-        ):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.",
-                ephemeral=True,
-            )
-        elif isinstance(error, discord.app_commands.CommandInvokeError):
-            log.error(
-                "App command error in %s: %s",
-                interaction.command.name if interaction.command else "unknown",
-                error.original,
-                exc_info=error.original,
-            )
+        async def _reply(msg: str) -> None:
             if interaction.response.is_done():
-                await interaction.followup.send(
-                    "❌ An error occurred while processing your command.",
-                    ephemeral=True,
-                )
+                await interaction.followup.send(msg, ephemeral=True)
             else:
-                await interaction.response.send_message(
-                    "❌ An error occurred while processing your command.",
-                    ephemeral=True,
+                await interaction.response.send_message(msg, ephemeral=True)
+
+        match error:
+            case discord.app_commands.CommandOnCooldown():
+                await _reply(f"⏱️ Cooldown: try again in {error.retry_after:.1f}s")
+            case discord.app_commands.MissingPermissions() | discord.app_commands.CheckFailure():
+                await _reply("❌ You don't have permission to use this command.")
+            case discord.app_commands.CommandInvokeError():
+                log.error(
+                    "App command error in %s: %s", cmd_name, error.original, exc_info=error.original
                 )
-        else:
-            log.error(
-                "App command error in %s: %s",
-                interaction.command.name if interaction.command else "unknown",
-                error,
-                exc_info=error,
-            )
-            if interaction.response.is_done():
-                await interaction.followup.send(
-                    "❌ An error occurred while processing your command.",
-                    ephemeral=True,
-                )
-            else:
-                await interaction.response.send_message(
-                    "❌ An error occurred while processing your command.",
-                    ephemeral=True,
-                )
+                await _reply("❌ An error occurred while processing your command.")
+            case _:
+                log.error("App command error in %s: %s", cmd_name, error, exc_info=error)
+                await _reply("❌ An error occurred while processing your command.")
+
+
+async def _run_bot(config: BotConfig) -> None:
+    """Create and run the bot within an async context manager for clean teardown."""
+    intents = discord.Intents.default()
+    intents.message_content = True
+    bot = ModerationBot(command_prefix="!", intents=intents, help_command=None)
+    try:
+        async with bot:
+            await bot.start(config.discord_token or "")
+    finally:
+        await close_http_client()
+        log.info("Closed shared HTTP client.")
 
 
 def main() -> None:
     """Main entry point for the bot."""
-    # Initialize configuration
     config = BotConfig()
-
-    # Validate configuration
     try:
         config.validate()
-    except ConfigurationError as e:
-        log.error("Configuration error: %s", e)
+    except ConfigurationError as exc:
+        log.error("Configuration error: %s", exc)
         sys.exit(1)
 
-    # Install uvloop for better performance
     try:
         uvloop.install()
         log.info("uvloop installed for better async performance")
-    except (ImportError, RuntimeError) as e:
-        log.warning("Failed to install uvloop, using default event loop: %s", e)
+    except (ImportError, RuntimeError) as exc:
+        log.warning("Failed to install uvloop, using default event loop: %s", exc)
 
-    # Log startup information
     log.info("=" * 60)
     log.info("Discord Account Scanner Bot v1.3.0")
     log.info("Using Cogs-Based Architecture")
@@ -275,30 +225,23 @@ def main() -> None:
         len(config.admin_user_ids) if config.admin_user_ids else "None",
     )
     log.info("=" * 60)
-
-    # Bot setup
-    intents = discord.Intents.default()
-    intents.message_content = True
-    bot = ModerationBot(command_prefix="!", intents=intents, help_command=None)
-
-    # Start the bot
     log.info("Starting Discord bot...")
+
     try:
-        bot.run(config.discord_token, log_handler=None)
-    except discord.LoginFailure as e:
-        log.error("❌ Discord login failed - invalid token: %s", e)
+        asyncio.run(_run_bot(config))
+    except discord.LoginFailure as exc:
+        log.error("❌ Discord login failed - invalid token: %s", exc)
         log.error("Check your DISCORD_BOT_TOKEN environment variable")
         sys.exit(1)
-    except discord.PrivilegedIntentsRequired as e:
-        log.error("❌ Missing required Discord intents: %s", e)
+    except discord.PrivilegedIntentsRequired as exc:
+        log.error("❌ Missing required Discord intents: %s", exc)
         log.error("Enable MESSAGE CONTENT intent in Discord Developer Portal:")
         log.error("  1. Go to https://discord.com/developers/applications")
-        log.error("  2. Select your application")
-        log.error("  3. Go to 'Bot' section")
-        log.error("  4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents")
+        log.error("  2. Select your application → 'Bot' section")
+        log.error("  3. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents")
         sys.exit(1)
-    except discord.HTTPException as e:
-        log.error("❌ Discord HTTP error: %s (status: %s)", e.text, e.status)
+    except discord.HTTPException as exc:
+        log.error("❌ Discord HTTP error: %s (status: %s)", exc.text, exc.status)
         sys.exit(1)
     except KeyboardInterrupt:
         log.info("Interrupted by user")
@@ -306,26 +249,6 @@ def main() -> None:
     except (OSError, RuntimeError, ValueError):
         log.exception("❌ Fatal error occurred")
         sys.exit(1)
-    finally:
-        log.info("Cleaning up tasks...")
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_closed():
-                # Close shared HTTP client
-                try:
-                    loop.run_until_complete(close_http_client())
-                    log.info("Closed shared HTTP client.")
-                except Exception as e:
-                    log.warning("Error closing HTTP client: %s", e)
-
-                pending = asyncio.all_tasks(loop)
-                for task in pending:
-                    task.cancel()
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                log.info("Closing the event loop.")
-                loop.close()
-        except (RuntimeError, ValueError) as e:
-            log.warning("Error during cleanup: %s", e)
 
 
 if __name__ == "__main__":

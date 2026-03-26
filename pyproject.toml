@@ -10,8 +10,7 @@ keywords = ["osint", "reddit", "toxicity", "sherlock", "security"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Security",
 ]
 
@@ -46,7 +45,7 @@ build-backend = "setuptools.build_meta"
 py-modules = ["account_scanner", "discord_bot"]
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.13"
 strict = true
 warn_unreachable = true
 warn_unused_ignores = true

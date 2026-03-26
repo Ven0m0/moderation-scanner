@@ -1,11 +1,13 @@
 """Moderation cog - handles account scanning and moderation commands."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 from collections import deque
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Any, Final
 
 import discord
 from discord import app_commands
@@ -15,20 +17,21 @@ from account_scanner import (
     RateLimiter,
     ScanConfig,
     ScannerAPI,
+    ScanResult,
     SherlockScanner,
 )
 
+if TYPE_CHECKING:
+    from discord_bot import BotConfig, ModerationBot
+
 log = logging.getLogger(__name__)
 
-# Constants
-MAX_SCAN_LENGTH: Final = 50  # Maximum username length
-SCAN_TIMEOUT: Final = 300  # 5 minutes timeout for scans
+MAX_SCAN_LENGTH: Final = 50
+SCAN_TIMEOUT: Final = 300
 SCANS_DIR: Final = Path("./scans")
 
-# Global Rate Limiter for Perspective API (60 req/min)
 GLOBAL_LIMITER = RateLimiter(rate_per_min=60.0)
 
-# Performance-optimized cooldown system using deque for O(1) cleanup
 _scan_cooldowns: dict[int, float] = {}
 _cooldown_queue: deque[tuple[float, int]] = deque()
 COOLDOWN_SECONDS = 30
@@ -37,42 +40,24 @@ COOLDOWN_SECONDS = 30
 class ModerationCog(commands.Cog, name="Moderation"):
     """Cog for moderation and account scanning commands."""
 
-    def __init__(self, bot: commands.Bot) -> None:
-        """Initialize the moderation cog.
-
-        Args:
-            bot: The Discord bot instance.
-        """
+    def __init__(self, bot: ModerationBot) -> None:
         self.bot = bot
-        self.config = bot.config  # Access config from bot instance
+        self.config: BotConfig = bot.config
         log.info("Moderation cog initialized")
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """Called when the cog is ready."""
-        # Create scans directory
+        """Create the scans directory on first ready."""
         SCANS_DIR.mkdir(exist_ok=True)
         log.info("Moderation cog ready - Scans directory: %s", SCANS_DIR.absolute())
 
     def check_cooldown(self, user_id: int) -> tuple[bool, float]:
-        """Check if user is on cooldown with lazy cleanup.
-
-        Args:
-            user_id: The Discord user ID to check.
-
-        Returns:
-            Tuple of (is_on_cooldown, seconds_remaining).
-        """
-        now = asyncio.get_event_loop().time()
-
-        # Lazy cleanup: Remove expired entries from front of queue (O(1) amortized)
+        """Return (is_on_cooldown, seconds_remaining) for *user_id*."""
+        now = asyncio.get_running_loop().time()
         while _cooldown_queue and now - _cooldown_queue[0][0] >= COOLDOWN_SECONDS:
             ts, uid = _cooldown_queue.popleft()
-            # Only delete if this is the most recent cooldown for this user
             if uid in _scan_cooldowns and _scan_cooldowns[uid] == ts:
                 del _scan_cooldowns[uid]
-
-        # Check cooldown
         if user_id in _scan_cooldowns:
             elapsed = now - _scan_cooldowns[user_id]
             if elapsed < COOLDOWN_SECONDS:
@@ -80,99 +65,89 @@ class ModerationCog(commands.Cog, name="Moderation"):
         return False, 0.0
 
     def update_cooldown(self, user_id: int) -> None:
-        """Update cooldown timestamp for user.
-
-        Args:
-            user_id: The Discord user ID to update.
-        """
-        now = asyncio.get_event_loop().time()
+        """Record a new cooldown timestamp for *user_id*."""
+        now = asyncio.get_running_loop().time()
         _scan_cooldowns[user_id] = now
         _cooldown_queue.append((now, user_id))
 
-    async def _send_detailed_results(self, ctx, username: str, results: dict) -> None:
-        """Helper to send detailed text results.
+    async def _send_detailed_results(
+        self,
+        ctx: commands.Context[Any] | discord.Interaction,
+        username: str,
+        results: ScanResult,
+    ) -> None:
+        """Send detailed scan results as chunked Discord messages."""
 
-        Args:
-            ctx: The command context or interaction.
-            username: The username that was scanned.
-            results: The scan results dictionary.
-        """
-        # Sherlock results
+        async def _send(text: str) -> None:
+            if isinstance(ctx, discord.Interaction):
+                await ctx.followup.send(text)
+            else:
+                await ctx.send(text)
+
         if results.get("sherlock"):
-            lines = [f"{account['platform']}: {account['url']}" for account in results["sherlock"]]
-            sherlock_text = (
-                f"**🔎 Sherlock OSINT Results for {username}:**\n```\n" + "\n".join(lines) + "\n```"
-            )
-
-            if len(sherlock_text) > 1900:
-                chunks = []
-                chunk_lines = [f"**🔎 Sherlock OSINT Results for {username}:**\n```"]
-                current_length = len(chunk_lines[0])
-
+            sherlock = results["sherlock"]
+            assert sherlock is not None
+            lines = [f"{a['platform']}: {a['url']}" for a in sherlock]
+            header = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+            full_text = header + "\n".join(lines) + "\n```"
+            if len(full_text) <= 1900:
+                await _send(full_text)
+            else:
+                chunks: list[str] = []
+                chunk_lines = [header]
+                current_len = len(header)
                 for line in lines:
-                    line_with_newline = line + "\n"
-                    if current_length + len(line_with_newline) + 3 > 1900:  # 3 for closing ```
+                    line_nl = line + "\n"
+                    if current_len + len(line_nl) + 3 > 1900:
                         chunk_lines.append("```")
                         chunks.append("\n".join(chunk_lines))
                         chunk_lines = ["```", line]
-                        current_length = len("```\n") + len(line)
+                        current_len = len("```\n") + len(line)
                     else:
                         chunk_lines.append(line)
-                        current_length += len(line_with_newline)
-
+                        current_len += len(line_nl)
                 chunk_lines.append("```")
                 chunks.append("\n".join(chunk_lines))
-
                 for chunk in chunks:
-                    if isinstance(ctx, discord.Interaction):
-                        await ctx.followup.send(chunk)
-                    else:
-                        await ctx.send(chunk)
-            else:
-                if isinstance(ctx, discord.Interaction):
-                    await ctx.followup.send(sherlock_text)
-                else:
-                    await ctx.send(sherlock_text)
+                    await _send(chunk)
 
-        # Reddit results
         if results.get("reddit"):
-            reddit_chunks = []
+            reddit = results["reddit"]
+            assert reddit is not None
+            reddit_chunks: list[str] = []
             current_lines = [f"**🤖 Reddit Toxicity Analysis for {username}:**"]
-            current_length = len(current_lines[0]) + 1  # +1 for newline
-
-            for item in results["reddit"]:
-                content_preview = item["content"][:200] + (
-                    "..." if len(item["content"]) > 200 else ""
+            current_len = len(current_lines[0]) + 1
+            for item in reddit:
+                preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
+                item_text = (
+                    "\n".join(
+                        [
+                            "```",
+                            f"Time: {item['timestamp']}",
+                            f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
+                            f"Toxicity: {item.get('TOXICITY', 0):.2f} | "
+                            f"Insult: {item.get('INSULT', 0):.2f} | "
+                            f"Profanity: {item.get('PROFANITY', 0):.2f} | "
+                            f"Sexual: {item.get('SEXUALLY_EXPLICIT', 0):.2f}",
+                            f"Content: {preview}",
+                            "```",
+                        ]
+                    )
+                    + "\n"
                 )
-                item_lines = [
-                    "```",
-                    f"Time: {item['timestamp']}",
-                    f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
-                    f"Toxicity: {item['TOXICITY']:.2f} | Insult: {item['INSULT']:.2f} | "
-                    f"Profanity: {item['PROFANITY']:.2f} | Sexual: {item['SEXUALLY_EXPLICIT']:.2f}",
-                    f"Content: {content_preview}",
-                    "```",
-                ]
-                item_text = "\n".join(item_lines) + "\n"
-
-                if current_length + len(item_text) > 1900:
+                if current_len + len(item_text) > 1900:
                     reddit_chunks.append("\n".join(current_lines))
                     current_lines = [item_text.rstrip()]
-                    current_length = len(current_lines[0])
+                    current_len = len(current_lines[0])
                 else:
                     current_lines.append(item_text.rstrip())
-                    current_length += len(item_text)
-
+                    current_len += len(item_text)
             if current_lines:
                 reddit_chunks.append("\n".join(current_lines))
-
             for chunk in reddit_chunks:
-                if isinstance(ctx, discord.Interaction):
-                    await ctx.followup.send(chunk)
-                else:
-                    await ctx.send(chunk)
+                await _send(chunk)
 
-    @commands.hybrid_command(
+    @commands.hybrid_command(  # type: ignore[arg-type]
         name="scan",
         description="Scan a user across platforms for moderation purposes",
     )
@@ -191,34 +166,22 @@ class ModerationCog(commands.Cog, name="Moderation"):
     )
     async def scan(
         self,
-        ctx: commands.Context,
+        ctx: commands.Context[Any],
         username: str,
         mode: str = "both",
     ) -> None:
-        """Scan a user across platforms for moderation purposes.
-
-        Args:
-            ctx: The command context.
-            username: The username to scan.
-            mode: The scan mode (sherlock, reddit, or both).
-        """
-        # Handle interaction vs context for cooldown
+        """Scan a user across platforms for moderation purposes."""
         user_id = ctx.author.id if isinstance(ctx, commands.Context) else ctx.interaction.user.id
 
-        # For slash commands, check cooldown manually
         if isinstance(ctx, commands.Context) and ctx.interaction:
             on_cooldown, remaining = self.check_cooldown(user_id)
             if on_cooldown:
-                await ctx.send(
-                    f"⏱️ Cooldown: try again in {remaining:.1f}s",
-                    ephemeral=True,
-                )
+                await ctx.send(f"⏱️ Cooldown: try again in {remaining:.1f}s", ephemeral=True)
                 return
 
         if len(username) > MAX_SCAN_LENGTH:
             await ctx.send(
-                f"❌ Username too long (max {MAX_SCAN_LENGTH} characters)",
-                ephemeral=True,
+                f"❌ Username too long (max {MAX_SCAN_LENGTH} characters)", ephemeral=True
             )
             return
 
@@ -234,13 +197,10 @@ class ModerationCog(commands.Cog, name="Moderation"):
             await ctx.send("❌ Sherlock not available on this bot", ephemeral=True)
             return
 
-        # Update cooldown for slash commands
         if isinstance(ctx, commands.Context) and ctx.interaction:
             self.update_cooldown(user_id)
 
-        # Sanitize username for filename safety
         safe_username = re.sub(r"[^\w\-]", "_", username)
-
         await ctx.send(f"🔍 Scanning **{username}** (mode: {mode})...")
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
@@ -252,7 +212,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
         scan_config = ScanConfig(
             username=username,
-            mode=mode,
+            mode=mode,  # type: ignore[arg-type]
             api_key=self.config.perspective_key,
             client_id=self.config.reddit_client_id,
             client_secret=self.config.reddit_client_secret,
@@ -265,7 +225,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
         try:
             results = await asyncio.wait_for(
-                ScannerAPI.scan_user(username, scan_config),
+                ScannerAPI.scan_user(scan_config),
                 timeout=SCAN_TIMEOUT,
             )
 
@@ -279,10 +239,9 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if mode in ("sherlock", "both"):
                 sherlock_results = results.get("sherlock")
                 if sherlock_results:
-                    platforms = len(sherlock_results)
                     embed.add_field(
                         name="🔎 Sherlock OSINT",
-                        value=f"✅ Found on **{platforms}** platforms",
+                        value=f"✅ Found on **{len(sherlock_results)}** platforms",
                         inline=False,
                     )
                 elif sherlock_results == []:
@@ -293,8 +252,9 @@ class ModerationCog(commands.Cog, name="Moderation"):
                     )
 
             if mode in ("reddit", "both"):
-                if results.get("reddit"):
-                    flagged = len(results["reddit"])
+                reddit_res = results.get("reddit")
+                if reddit_res:
+                    flagged = len(reddit_res)
                     status = "⚠️ Toxic content detected" if flagged > 0 else "✅ Clean"
                     embed.add_field(
                         name="🤖 Reddit Analysis",
@@ -310,22 +270,15 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
             if results.get("errors"):
                 error_text = "\n".join(f"• {err}" for err in results["errors"])
-                embed.add_field(
-                    name="⚠️ Issues",
-                    value=error_text[:1024],
-                    inline=False,
-                )
+                embed.add_field(name="⚠️ Issues", value=error_text[:1024], inline=False)
 
-            # Edit the original message with the embed
-            if isinstance(ctx, commands.Context):
-                # For prefix commands, we need to edit the last message we sent
+            if ctx.interaction:
+                await ctx.interaction.edit_original_response(content=None, embed=embed)
+            else:
                 async for msg in ctx.channel.history(limit=10):
                     if msg.author == self.bot.user and msg.content.startswith("🔍"):
                         await msg.edit(content=None, embed=embed)
                         break
-            else:
-                # For slash commands
-                await ctx.interaction.edit_original_response(content=None, embed=embed)
 
             await self._send_detailed_results(ctx, username, results)
             log.info("Scan completed for user '%s'", username)
@@ -339,7 +292,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 await ctx.send("❌ Discord API error occurred. Please try again.")
             except (discord.HTTPException, discord.DiscordException):
                 log.debug(
-                    "Failed to send Discord API error message to user during scan for '%s'",
+                    "Failed to send Discord API error message during scan for '%s'",
                     username,
                     exc_info=True,
                 )
@@ -349,9 +302,5 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """Load the moderation cog.
-
-    Args:
-        bot: The Discord bot instance.
-    """
-    await bot.add_cog(ModerationCog(bot))
+    """Load the moderation cog."""
+    await bot.add_cog(ModerationCog(bot))  # type: ignore[arg-type]
