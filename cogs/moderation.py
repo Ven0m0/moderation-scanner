@@ -275,7 +275,11 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if ctx.interaction:
                 await ctx.interaction.edit_original_response(content=None, embed=embed)
             else:
-                await status_message.edit(content=None, embed=embed)
+                try:
+                    await status_message.edit(content=None, embed=embed)
+                except (discord.NotFound, discord.Forbidden):
+                    # If the status message was deleted or permissions changed, fall back to a new message
+                    await ctx.send(embed=embed)
 
             await self._send_detailed_results(ctx, username, results)
             log.info("Scan completed for user '%s'", username)
