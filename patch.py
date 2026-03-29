@@ -1,4 +1,3 @@
-
 with open("cogs/moderation.py") as f:
     content = f.read()
 
