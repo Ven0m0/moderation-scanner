@@ -201,7 +201,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             self.update_cooldown(user_id)
 
         safe_username = re.sub(r"[^\w\-]", "_", username)
-        await ctx.send(f"🔍 Scanning **{username}** (mode: {mode})...")
+        status_message = await ctx.send(f"🔍 Scanning **{username}** (mode: {mode})...")
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
             ctx.author.name,
@@ -275,10 +275,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if ctx.interaction:
                 await ctx.interaction.edit_original_response(content=None, embed=embed)
             else:
-                async for msg in ctx.channel.history(limit=10):
-                    if msg.author == self.bot.user and msg.content.startswith("🔍"):
-                        await msg.edit(content=None, embed=embed)
-                        break
+                await status_message.edit(content=None, embed=embed)
 
             await self._send_detailed_results(ctx, username, results)
             log.info("Scan completed for user '%s'", username)
