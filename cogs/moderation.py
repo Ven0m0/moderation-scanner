@@ -41,18 +41,32 @@ def chunk_message(lines: list[str], header: str = "", max_length: int = 1900) ->
     """Chunk lines of text into messages respecting max_length."""
     chunks: list[str] = []
 
-    current_lines: list[str] = [header] if header else []
-    current_len = len(header) + 1 if header else 0
+    # Track current_len as the exact length of "\n".join(current_lines).
+    if header:
+        header_stripped = header.rstrip()
+        current_lines: list[str] = [header_stripped]
+        current_len = len(header_stripped)
+    else:
+        current_lines = []
+        current_len = 0
 
     for line in lines:
-        if current_len + len(line) > max_length:
+        stripped = line.rstrip()
+        # If there are existing lines, a newline separator will be inserted.
+        separator_len = 1 if current_lines else 0
+        prospective_len = current_len + separator_len + len(stripped)
+
+        if prospective_len > max_length:
             if current_lines:
                 chunks.append("\n".join(current_lines))
-            current_lines = [line.rstrip()]
-            current_len = len(current_lines[0])
+            current_lines = [stripped]
+            current_len = len(stripped)
         else:
-            current_lines.append(line.rstrip())
-            current_len += len(line) + 1
+            if current_lines:
+                current_lines.append(stripped)
+            else:
+                current_lines = [stripped]
+            current_len = prospective_len
 
     if current_lines:
         chunks.append("\n".join(current_lines))
