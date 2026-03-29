@@ -211,7 +211,10 @@ class ModerationCog(commands.Cog, name="Moderation"):
         clean_username = discord.utils.escape_markdown(
             discord.utils.escape_mentions(username)
         ).replace("<@", "<\\@")
-        await ctx.send(f"🔍 Scanning **{clean_username}** (mode: {mode})...")
+        await ctx.send(
+            f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
             ctx.author.name,
