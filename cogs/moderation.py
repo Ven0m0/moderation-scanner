@@ -125,7 +125,11 @@ class ModerationCog(commands.Cog, name="Moderation"):
             sherlock = results["sherlock"]
             assert sherlock is not None
             lines = [f"{a['platform']}: {a['url']}" for a in sherlock]
-            header = f"**🔎 Sherlock OSINT Results for {username}:**\n```\n"
+            # Remove direct mentions like <@123>
+            clean_username = discord.utils.escape_markdown(
+                discord.utils.escape_mentions(username)
+            ).replace("<@", "<\\@")
+            header = f"**🔎 Sherlock OSINT Results for {clean_username}:**\n```\n"
             full_text = header + "\n".join(lines) + "\n```"
             if len(full_text) <= 1900:
                 await _send(full_text)
@@ -142,7 +146,12 @@ class ModerationCog(commands.Cog, name="Moderation"):
         if results.get("reddit"):
             reddit = results["reddit"]
             assert reddit is not None
-            items = []
+            reddit_chunks: list[str] = []
+            clean_username = discord.utils.escape_markdown(
+                discord.utils.escape_mentions(username)
+            ).replace("<@", "<\\@")
+            current_lines = [f"**🤖 Reddit Toxicity Analysis for {clean_username}:**"]
+            current_len = len(current_lines[0]) + 1
             for item in reddit:
                 preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
                 item_text = "\n".join(
@@ -219,7 +228,13 @@ class ModerationCog(commands.Cog, name="Moderation"):
             self.update_cooldown(user_id)
 
         safe_username = re.sub(r"[^\w\-]", "_", username)
-        status_message = await ctx.send(f"🔍 Scanning **{username}** (mode: {mode})...")
+        clean_username = discord.utils.escape_markdown(
+            discord.utils.escape_mentions(username)
+        ).replace("<@", "<\\@")
+        await ctx.send(
+            f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
             ctx.author.name,
@@ -248,7 +263,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             )
 
             embed = discord.Embed(
-                title=f"Scan Results: {username}",
+                title=f"Scan Results: {clean_username}",
                 color=discord.Color.blue(),
                 timestamp=discord.utils.utcnow(),
             )
