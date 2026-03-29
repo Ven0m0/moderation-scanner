@@ -242,9 +242,6 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 timeout=SCAN_TIMEOUT,
             )
 
-            clean_username = discord.utils.escape_markdown(
-                discord.utils.escape_mentions(username)
-            ).replace("<@", "<\\@")
             embed = discord.Embed(
                 title=f"Scan Results: {clean_username}",
                 color=discord.Color.blue(),
