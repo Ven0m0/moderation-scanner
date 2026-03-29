@@ -37,6 +37,29 @@ _cooldown_queue: deque[tuple[float, int]] = deque()
 COOLDOWN_SECONDS = 30
 
 
+def chunk_message(lines: list[str], header: str = "", max_length: int = 1900) -> list[str]:
+    """Chunk lines of text into messages respecting max_length."""
+    chunks: list[str] = []
+
+    current_lines: list[str] = [header] if header else []
+    current_len = len(header) + 1 if header else 0
+
+    for line in lines:
+        if current_len + len(line) > max_length:
+            if current_lines:
+                chunks.append("\n".join(current_lines))
+            current_lines = [line.rstrip()]
+            current_len = len(current_lines[0])
+        else:
+            current_lines.append(line.rstrip())
+            current_len += len(line) + 1
+
+    if current_lines:
+        chunks.append("\n".join(current_lines))
+
+    return chunks
+
+
 class ModerationCog(commands.Cog, name="Moderation"):
     """Cog for moderation and account scanning commands."""
 
@@ -93,61 +116,42 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if len(full_text) <= 1900:
                 await _send(full_text)
             else:
-                chunks: list[str] = []
-                chunk_lines = [header]
-                current_len = len(header)
-                for line in lines:
-                    line_nl = line + "\n"
-                    if current_len + len(line_nl) + 3 > 1900:
-                        chunk_lines.append("```")
-                        chunks.append("\n".join(chunk_lines))
-                        chunk_lines = ["```", line]
-                        current_len = len("```\n") + len(line)
-                    else:
-                        chunk_lines.append(line)
-                        current_len += len(line_nl)
-                chunk_lines.append("```")
-                chunks.append("\n".join(chunk_lines))
+                chunks = chunk_message(lines, header=header, max_length=1900)
+                for i in range(len(chunks)):
+                    if i > 0 and not chunks[i].startswith("```"):
+                        chunks[i] = "```\n" + chunks[i]
+                    if not chunks[i].endswith("```"):
+                        chunks[i] = chunks[i] + "\n```"
                 for chunk in chunks:
                     await _send(chunk)
 
         if results.get("reddit"):
             reddit = results["reddit"]
             assert reddit is not None
-            reddit_chunks: list[str] = []
-            current_lines = [f"**🤖 Reddit Toxicity Analysis for {username}:**"]
-            current_len = len(current_lines[0]) + 1
+            items = []
             for item in reddit:
                 preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
-                item_text = (
-                    "\n".join(
-                        [
-                            "```",
-                            f"Time: {item['timestamp']}",
-                            f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
-                            f"Toxicity: {item.get('TOXICITY', 0):.2f} | "
-                            f"Insult: {item.get('INSULT', 0):.2f} | "
-                            f"Profanity: {item.get('PROFANITY', 0):.2f} | "
-                            f"Sexual: {item.get('SEXUALLY_EXPLICIT', 0):.2f}",
-                            f"Content: {preview}",
-                            "```",
-                        ]
-                    )
-                    + "\n"
+                item_text = "\n".join(
+                    [
+                        "```",
+                        f"Time: {item['timestamp']}",
+                        f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
+                        f"Toxicity: {item.get('TOXICITY', 0):.2f} | "
+                        f"Insult: {item.get('INSULT', 0):.2f} | "
+                        f"Profanity: {item.get('PROFANITY', 0):.2f} | "
+                        f"Sexual: {item.get('SEXUALLY_EXPLICIT', 0):.2f}",
+                        f"Content: {preview}",
+                        "```",
+                    ]
                 )
-                if current_len + len(item_text) > 1900:
-                    reddit_chunks.append("\n".join(current_lines))
-                    current_lines = [item_text.rstrip()]
-                    current_len = len(current_lines[0])
-                else:
-                    current_lines.append(item_text.rstrip())
-                    current_len += len(item_text)
-            if current_lines:
-                reddit_chunks.append("\n".join(current_lines))
+                items.append(item_text)
+
+            header = f"**🤖 Reddit Toxicity Analysis for {username}:**"
+            reddit_chunks = chunk_message(items, header=header, max_length=1900)
             for chunk in reddit_chunks:
                 await _send(chunk)
 
-    @commands.hybrid_command(  # type: ignore[arg-type]
+    @commands.hybrid_command(
         name="scan",
         description="Scan a user across platforms for moderation purposes",
     )
@@ -303,4 +307,4 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 async def setup(bot: commands.Bot) -> None:
     """Load the moderation cog."""
-    await bot.add_cog(ModerationCog(bot))  # type: ignore[arg-type]
+    await bot.add_cog(ModerationCog(bot))
