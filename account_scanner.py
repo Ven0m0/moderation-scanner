@@ -25,6 +25,7 @@ import shutil
 import sys
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -105,7 +106,7 @@ _http_client_lock = asyncio.Lock()
 _sherlock_available: bool | None = None
 _sherlock_lock = asyncio.Lock()
 
-_scan_cache: dict[str, tuple[float, ScanResult]] = {}
+_scan_cache: OrderedDict[str, tuple[float, ScanResult]] = OrderedDict()
 _cache_lock = asyncio.Lock()
 
 
@@ -139,17 +140,19 @@ async def get_cached_result(cache_key: str) -> ScanResult | None:
             timestamp, result = _scan_cache[cache_key]
             if time.monotonic() - timestamp < CACHE_TTL:
                 log.info("📦 Cache hit for '%s'", cache_key)
+                _scan_cache.move_to_end(cache_key)
                 return result
             del _scan_cache[cache_key]
     return None
 
 
 async def set_cached_result(cache_key: str, result: ScanResult) -> None:
-    """Store a ScanResult in the TTL cache, evicting the oldest if at capacity."""
+    """Store a ScanResult in the TTL LRU cache, evicting the oldest if at capacity."""
     async with _cache_lock:
-        if len(_scan_cache) >= CACHE_MAX_SIZE:
-            oldest_key = min(_scan_cache, key=lambda k: _scan_cache[k][0])
-            del _scan_cache[oldest_key]
+        if cache_key in _scan_cache:
+            del _scan_cache[cache_key]
+        elif len(_scan_cache) >= CACHE_MAX_SIZE:
+            _scan_cache.popitem(last=False)
         _scan_cache[cache_key] = (time.monotonic(), result)
         log.info("📦 Cached result for '%s'", cache_key)
 
@@ -263,10 +266,8 @@ class SherlockScanner:
         return status.lower() in ("claimed", "found!")
 
     @staticmethod
-    def _parse_stdout(text: str) -> list[SherlockResult]:
-        """Parse Sherlock stdout into a list of SherlockResult entries."""
-        seen: set[tuple[str, str]] = set()
-        results: list[SherlockResult] = []
+    def _extract_accounts(text: str) -> Iterator[tuple[str, str]]:
+        """Yield (platform, url) pairs from Sherlock stdout text."""
         for raw_line in text.splitlines():
             stripped = raw_line.strip()
             if "://" not in stripped or ": " not in stripped:
@@ -281,6 +282,14 @@ class SherlockScanner:
             platform = platform.strip(" +[]")
             if not url.startswith("http"):
                 continue
+            yield platform, url
+
+    @staticmethod
+    def _parse_stdout(text: str) -> list[SherlockResult]:
+        """Parse Sherlock stdout into a list of SherlockResult entries."""
+        seen: set[tuple[str, str]] = set()
+        results: list[SherlockResult] = []
+        for platform, url in SherlockScanner._extract_accounts(text):
             key = (platform.lower(), url)
             if key in seen:
                 continue
