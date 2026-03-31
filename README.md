@@ -1,5 +1,7 @@
 # Account Scanner
 
+[![Maintainability](https://qlty.sh/gh/Ven0m0/projects/moderation-scanner/maintainability.svg)](https://qlty.sh/gh/Ven0m0/projects/moderation-scanner)
+
 Multi-source account scanner combining Reddit toxicity analysis via Perspective API with Sherlock OSINT username enumeration.
 
 ## Features
