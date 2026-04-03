@@ -147,19 +147,19 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
 async def test_sherlock_scan_command_order() -> None:
     captured_cmd: tuple[str, ...] | None = None
 
-    class FakeProcess:
+    class FakeSuccessfulProcess:
         def __init__(self) -> None:
             self.returncode = 0
 
         async def communicate(self) -> tuple[bytes, bytes]:
             return (b"[+] GitHub: https://github.com/alice\n", b"")
 
-    async def fake_create_subprocess_exec(*cmd: str, **kwargs: object) -> FakeProcess:
+    async def fake_create_subprocess_exec(*cmd: str, **kwargs: object) -> FakeSuccessfulProcess:
         nonlocal captured_cmd
         captured_cmd = cmd
         assert kwargs["stdout"] == asyncio.subprocess.PIPE
         assert kwargs["stderr"] == asyncio.subprocess.PIPE
-        return FakeProcess()
+        return FakeSuccessfulProcess()
 
     with patch("account_scanner.asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
         results = await SherlockScanner().scan("alice", timeout_seconds=120, verbose=False)
@@ -184,7 +184,7 @@ async def test_sherlock_scan_timeout_recovery() -> None:
         async def read(self) -> bytes:
             return self._data
 
-    class FakeProcess:
+    class FakeTimeoutProcess:
         def __init__(self) -> None:
             self.stdout = FakeReader(b"[+] GitHub: https://github.com/alice\n")
             self.stderr = FakeReader(b"")
@@ -201,7 +201,7 @@ async def test_sherlock_scan_timeout_recovery() -> None:
         async def wait(self) -> None:
             self.waited = True
 
-    proc = FakeProcess()
+    proc = FakeTimeoutProcess()
 
     with patch("account_scanner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
         results = await SherlockScanner().scan("alice", timeout_seconds=1, verbose=False)

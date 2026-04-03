@@ -338,16 +338,24 @@ class SherlockScanner:
                             proc.stdout.read(),
                             timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
                         )
-                    except (OSError, RuntimeError, ValueError, TimeoutError):
-                        log.debug("🔎 Sherlock: failed to recover partial stdout", exc_info=True)
+                    except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
+                        log.debug(
+                            "🔎 Sherlock: failed to recover partial stdout: %s",
+                            type(exc).__name__,
+                            exc_info=True,
+                        )
                 if proc.stderr is not None:
                     try:
                         partial_stderr = await asyncio.wait_for(
                             proc.stderr.read(),
                             timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
                         )
-                    except (OSError, RuntimeError, ValueError, TimeoutError):
-                        log.debug("🔎 Sherlock: failed to recover partial stderr", exc_info=True)
+                    except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
+                        log.debug(
+                            "🔎 Sherlock: failed to recover partial stderr: %s",
+                            type(exc).__name__,
+                            exc_info=True,
+                        )
                 await proc.wait()
                 log.warning(
                     "🔎 Sherlock: timed out after %ds; using partial results",
