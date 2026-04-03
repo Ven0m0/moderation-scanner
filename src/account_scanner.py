@@ -454,6 +454,8 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
+                    if not title and not selftext:
+                        continue
                     has_title = bool(title)
                     has_selftext = bool(selftext)
                     content = f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
