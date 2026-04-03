@@ -357,6 +357,10 @@ class SherlockScanner:
                     )
                 except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
                     stdout_task.cancel()
+                    try:
+                        await stdout_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
                     stdout = b""
                     log.debug(
                         "🔎 Sherlock: failed to recover partial stdout: %s",
@@ -369,6 +373,10 @@ class SherlockScanner:
                     )
                 except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
                     stderr_task.cancel()
+                    try:
+                        await stderr_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
                     stderr = b""
                     log.debug(
                         "🔎 Sherlock: failed to recover partial stderr: %s",
