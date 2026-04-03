@@ -156,70 +156,16 @@ sudo systemctl status discord-scanner-bot
 
 ### Option 2: Docker
 
-Create `Dockerfile`:
-
-```dockerfile
-FROM python:3.11-slim
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Sherlock
-RUN pip install sherlock-project
-
-# Set working directory
-WORKDIR /app
-
-# Copy project files
-COPY . .
-
-# Install application
-RUN pip install --no-cache-dir -e .
-
-# Create scans directory
-RUN mkdir -p /app/scans
-
-# Run as non-root user
-RUN useradd -m -u 1000 botuser && \
-    chown -R botuser:botuser /app
-USER botuser
-
-# Run bot
-CMD ["python", "-m", "discord_bot"]
-```
-
-Create `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  discord-bot:
-    build: .
-    restart: unless-stopped
-    environment:
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - PERSPECTIVE_API_KEY=${PERSPECTIVE_API_KEY}
-      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
-      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
-      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT}
-      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
-    volumes:
-      - ./scans:/app/scans
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
+Use the repository `Dockerfile` and `docker-compose.yml`, then create a local `.env` file from
+`.env.example`.
 
 Deploy:
 
 ```bash
-docker-compose up -d
-docker-compose logs -f
+cp .env.example .env
+mkdir -p scans
+docker compose up -d --build
+docker compose logs -f discord-bot
 ```
 
 ### Option 3: Kubernetes
@@ -324,19 +270,19 @@ kubectl apply -f k8s-deployment.yaml
 kubectl logs -f deployment/discord-scanner-bot
 ```
 
-### Option 4: Simple Screen Session
+### Option 4: Simple tmux Session
 
 For development/testing:
 
 ```bash
-# Start in screen session
-screen -S discord-bot
+# Start in tmux session
+tmux new -s discord-bot
 cd /path/to/moderation-scanner
 source .env  # Load environment variables
 python -m discord_bot
 
-# Detach: Ctrl+A, then D
-# Reattach: screen -r discord-bot
+# Detach: Ctrl+B, then D
+# Reattach: tmux attach -t discord-bot
 ```
 
 ## Monitoring & Maintenance
@@ -356,7 +302,7 @@ View logs:
 sudo journalctl -u discord-scanner-bot -f
 
 # Docker
-docker-compose logs -f
+docker compose logs -f discord-bot
 
 # Kubernetes
 kubectl logs -f deployment/discord-scanner-bot
@@ -580,8 +526,8 @@ pip install -e . --upgrade
 sudo systemctl restart discord-scanner-bot
 
 # Or for Docker
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
 
 ### Monitoring Dependency Vulnerabilities

@@ -1,5 +1,6 @@
-# Multi-stage build for optimized production image
-FROM python:3.14-slim AS builder
+ARG PYTHON_VERSION=3.13
+
+FROM python:${PYTHON_VERSION}-slim AS builder
 
 WORKDIR /app
 
@@ -7,31 +8,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
-    PYTHONOPTIMIZE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    LC_ALL=C \
+    LC_ALL=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
     build-essential && \
-    apt-get autoremove --purge -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy only the files needed to build the package
+COPY pyproject.toml README.md ./
+COPY src ./src
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
-
-# Install Sherlock (optional but recommended for full functionality)
-# Use --use-pep517 to avoid stem build issues with legacy setup.py
-RUN pip install --no-cache-dir --use-pep517 sherlock-project
+# Build wheels once so the runtime image can install without compilers
+RUN python -m pip install --upgrade pip && \
+    python -m pip wheel --no-cache-dir --wheel-dir /tmp/wheels . sherlock-project
 
 # Production stage
-FROM python:3.14-slim
+FROM python:${PYTHON_VERSION}-slim
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash botuser && \
@@ -40,34 +36,22 @@ RUN useradd -m -u 1000 -s /bin/bash botuser && \
 
 WORKDIR /app
 
-# Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy application code
-COPY --chown=botuser:botuser src ./src
-
-# Switch to non-root user
-USER botuser
-
-# Create scans directory with proper permissions
-RUN mkdir -p /app/scans
-
-# Health check (optional - checks if Python process is running)
-HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
-
-# Set environment variables for Python optimization
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=0 \
     PYTHONIOENCODING=utf-8 \
-    PYTHONOPTIMIZE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    LC_ALL=C \
-    PATH="/home/botuser/.local/bin:$PATH" \
-    PYTHONPATH="/app/src"
+    LC_ALL=C.UTF-8
+
+COPY --from=builder /tmp/wheels /tmp/wheels
+
+RUN python -m pip install --no-cache-dir /tmp/wheels/* && \
+    rm -rf /tmp/wheels
+
+USER botuser
+
+VOLUME ["/app/scans"]
 
 # Run the Discord bot
-CMD ["python", "-m", "discord_bot"]
+CMD ["scanner-bot"]
