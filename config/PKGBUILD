@@ -7,7 +7,7 @@ arch=(any)
 url="https://github.com/Ven0m0/moderation-scanner"
 license=(MIT)
 depends=(
-  python>=3.11
+  python>=3.13
   python-httpx
   python-orjson
   python-asyncpraw
@@ -63,12 +63,12 @@ check() {
   # Type check
   if command -v mypy &>/dev/null; then
     msg2 "Running type checks with mypy..."
-    mypy account_scanner.py || :
+    PYTHONPATH="$PWD/src" mypy src/account_scanner.py || :
   fi
 
   # Run tests
   msg2 "Running test suite..."
-  PYTHONPATH="$PWD" pytest -v --tb=short || :
+  PYTHONPATH="$PWD/src" pytest -v --tb=short || :
 }
 
 package() {
@@ -82,10 +82,6 @@ package() {
 
   # Install documentation
   install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-  if [[ -f docs/changelog.md ]]; then
-    install -Dm644 docs/changelog.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
-  fi
-
   # Install credential template
   if [[ -f credentials.template ]]; then
     install -Dm644 credentials.template "${pkgdir}/usr/share/doc/${pkgname}/credentials.template"

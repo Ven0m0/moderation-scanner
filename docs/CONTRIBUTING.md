@@ -16,7 +16,7 @@ Thank you for your interest in contributing to the Account Scanner project! This
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.13 or higher
 - Git
 - Basic understanding of async/await Python
 - Familiarity with Discord.py (for bot contributions)
@@ -121,7 +121,7 @@ Use ruff for formatting:
 ruff format .
 
 # Format specific file
-ruff format account_scanner.py
+ruff format src/account_scanner.py
 ```
 
 ### Linting
@@ -142,10 +142,10 @@ Run mypy to check type hints:
 
 ```bash
 # Check all files
-mypy account_scanner.py discord_bot.py
+PYTHONPATH=src mypy src/account_scanner.py
 
 # Check with strict mode
-mypy --strict account_scanner.py
+PYTHONPATH=src mypy --strict src/account_scanner.py
 ```
 
 ### Docstring Format
@@ -199,7 +199,7 @@ pytest tests/test_scanner.py
 pytest tests/test_scanner.py::test_rate_limiter
 
 # Run with coverage
-pytest --cov=account_scanner --cov-report=html
+PYTHONPATH=src pytest --cov=src --cov-report=html
 ```
 
 ### Writing Tests
@@ -259,10 +259,10 @@ ruff format .
 ruff check .
 
 # Type check
-mypy account_scanner.py discord_bot.py
+PYTHONPATH=src mypy src/account_scanner.py
 
 # Run tests
-pytest
+PYTHONPATH=src pytest
 ```
 
 3. **Update documentation** if you:
@@ -317,21 +317,20 @@ git push origin feature/your-feature-name
 - [ ] Updated documentation (README, docstrings)
 - [ ] Ran ruff format and ruff check
 - [ ] Ran mypy type checking
-- [ ] Updated changelog.md (for notable changes)
 - [ ] No secrets or credentials in code
 
 ## Project Architecture
 
 ### Core Components
 
-**account_scanner.py**
+**src/account_scanner.py**
 - `ScanConfig`: Dataclass for configuration
 - `RateLimiter`: API rate limiting
 - `SherlockScanner`: OSINT username enumeration
 - `RedditScanner`: Reddit + Perspective API toxicity analysis
 - `ScannerAPI`: High-level library interface
 
-**discord_bot.py**
+**src/discord_bot.py**
 - `BotConfig`: Environment variable configuration
 - Bot commands: scan, health, help, shutdown
 - Discord.py integration with permissions and cooldowns
@@ -339,7 +338,7 @@ git push origin feature/your-feature-name
 ### Key Design Principles
 
 1. **Async-first**: All I/O operations use async/await
-2. **Type safety**: Comprehensive type hints throughout
+2. **Type safety**: Detailed type hints throughout
 3. **Error handling**: Graceful degradation, log errors
 4. **Rate limiting**: Respect API quotas
 5. **Separation of concerns**: Clear module boundaries
@@ -349,14 +348,14 @@ git push origin feature/your-feature-name
 
 #### Adding a New Toxicity Attribute
 
-1. Update `ATTRIBUTES` constant in `account_scanner.py`
+1. Update `ATTRIBUTES` constant in `src/account_scanner.py`
 2. Update docstrings mentioning attribute lists
 3. Update README toxicity attributes section
 4. Add tests for the new attribute
 
 #### Adding a New Discord Command
 
-1. Add command function in `discord_bot.py`
+1. Add command function in `src/discord_bot.py`
 2. Add docstring with usage examples
 3. Add permission checks/cooldowns if needed
 4. Update `!help` command output
@@ -369,7 +368,7 @@ git push origin feature/your-feature-name
 3. Add rate limiting
 4. Add configuration to `ScanConfig`
 5. Integrate into `ScannerAPI.scan_user()`
-6. Add comprehensive tests
+6. Add detailed tests
 
 ## Common Tasks
 
@@ -377,10 +376,10 @@ git push origin feature/your-feature-name
 
 ```bash
 # Test CLI
-python account_scanner.py testuser --mode sherlock --verbose
+python src/account_scanner.py testuser --mode sherlock --verbose
 
 # Test Discord bot (requires valid token)
-python discord_bot.py
+python src/discord_bot.py
 ```
 
 ### Debugging
@@ -395,7 +394,7 @@ logging.basicConfig(level=logging.DEBUG)
 Use the `--verbose` flag for CLI:
 
 ```bash
-python account_scanner.py user --verbose
+python src/account_scanner.py user --verbose
 ```
 
 ### Building Docker Image

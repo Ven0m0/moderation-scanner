@@ -8,7 +8,7 @@ The bot now uses a **modular cogs system** that separates commands into logical 
 
 ## Architecture
 
-### Main Bot File (`discord_bot.py`)
+### Main Bot File (`src/discord_bot.py`)
 
 The main bot file handles:
 - Configuration loading and validation
@@ -20,7 +20,7 @@ The main bot file handles:
 ### Cogs Directory Structure
 
 ```
-cogs/
+src/cogs/
 ├── __init__.py          # Package marker
 ├── general.py           # General commands (health, help)
 ├── moderation.py        # Moderation commands (scan)
@@ -29,7 +29,7 @@ cogs/
 
 ## Cogs Explained
 
-### 1. General Cog (`cogs/general.py`)
+### 1. General Cog (`src/cogs/general.py`)
 
 **Purpose:** Handles general-purpose bot commands.
 
@@ -42,7 +42,7 @@ cogs/
 - Displays service status (Sherlock, Perspective API, Reddit API)
 - Shows bot latency and connection statistics
 
-### 2. Moderation Cog (`cogs/moderation.py`)
+### 2. Moderation Cog (`src/cogs/moderation.py`)
 
 **Purpose:** Handles account scanning and moderation features.
 
@@ -57,7 +57,7 @@ cogs/
 - Automatic username sanitization for file safety
 - Timeout protection (5 minutes max)
 
-### 3. Admin Cog (`cogs/admin.py`)
+### 3. Admin Cog (`src/cogs/admin.py`)
 
 **Purpose:** Handles administrative commands (requires admin permission).
 
@@ -111,9 +111,9 @@ async def setup_hook(self) -> None:
     for cog in cogs_to_load:
         try:
             await self.load_extension(cog)
-            log.info("✅ Loaded cog: %s", cog)
+            log.info(" Loaded cog: %s", cog)
         except Exception as e:
-            log.error("❌ Failed to load cog %s: %s", cog, e, exc_info=True)
+            log.error(" Failed to load cog %s: %s", cog, e, exc_info=True)
 ```
 
 ### 5. Custom Bot Class
@@ -138,7 +138,7 @@ This allows:
 
 To add a new cog:
 
-1. Create a new file in the `cogs/` directory (e.g., `cogs/fun.py`)
+1. Create a new file in the `src/cogs/` directory (e.g., `src/cogs/fun.py`)
 2. Define your cog class:
 
 ```python
@@ -164,7 +164,7 @@ async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(FunCog(bot))
 ```
 
-3. Add the cog to the `cogs_to_load` list in `discord_bot.py`:
+3. Add the cog to the `cogs_to_load` list in `src/discord_bot.py`:
 
 ```python
 cogs_to_load = ["cogs.general", "cogs.moderation", "cogs.admin", "cogs.fun"]
@@ -207,13 +207,13 @@ cogs_to_load = ["cogs.general", "cogs.moderation", "cogs.admin", "cogs.fun"]
 The bot has been migrated from a monolithic structure to a cogs-based architecture:
 
 **Before:**
-- All commands in `discord_bot.py` (~740 lines)
+- All commands in `src/discord_bot.py` (~740 lines)
 - Difficult to maintain and extend
 - No hot-reload capability
 
 **After:**
 - Commands organized into cogs (~200-300 lines each)
-- Core bot logic in `discord_bot.py` (~335 lines)
+- Core bot logic in `src/discord_bot.py` (~335 lines)
 - Hot-reload support via `/reload`
 - Better error handling for slash commands
 

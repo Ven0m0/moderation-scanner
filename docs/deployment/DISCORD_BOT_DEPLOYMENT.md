@@ -1,6 +1,6 @@
 # Discord Bot Deployment Guide
 
-Complete guide for deploying the Account Scanner Discord bot to production.
+Deployment guide for the Account Scanner Discord bot to production.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ Complete guide for deploying the Account Scanner Discord bot to production.
 ## Prerequisites
 
 ### Required
-- Python 3.11 or 3.12
+- Python 3.13+
 - Discord Bot Token (from Discord Developer Portal)
 - Sherlock OSINT tool (optional, for OSINT scanning)
 
@@ -54,7 +54,7 @@ LOG_CHANNEL_ID=123456789012345678   # Discord channel ID for logging
 4. Click "Add Bot"
 5. Under "Token", click "Copy" to get your bot token
 6. Enable required Privileged Gateway Intents:
-   - ✅ Message Content Intent
+   - Message Content Intent
 
 #### Perspective API Key
 
@@ -531,7 +531,7 @@ Set up alerts for:
 Enable verbose logging:
 
 ```python
-# Modify discord_bot.py temporarily
+# Modify src/discord_bot.py temporarily
 logging.basicConfig(level=logging.DEBUG)  # Instead of INFO
 ```
 

@@ -52,7 +52,7 @@ jobs:
         id: mypy
         run: |
           echo "## MyPy Type Check" >> $GITHUB_STEP_SUMMARY
-          uv run mypy account_scanner.py --show-error-codes --pretty || true
+          PYTHONPATH=src uv run mypy src/account_scanner.py --show-error-codes --pretty || true
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Calculate code metrics

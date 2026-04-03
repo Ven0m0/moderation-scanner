@@ -45,7 +45,7 @@ COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY --chown=botuser:botuser account_scanner.py discord_bot.py ./
+COPY --chown=botuser:botuser src ./src
 
 # Switch to non-root user
 USER botuser
@@ -66,7 +66,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LC_ALL=C \
-    PATH="/home/botuser/.local/bin:$PATH"
+    PATH="/home/botuser/.local/bin:$PATH" \
+    PYTHONPATH="/app/src"
 
 # Run the Discord bot
-CMD ["python", "discord_bot.py"]
+CMD ["python", "-m", "discord_bot"]

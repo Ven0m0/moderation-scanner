@@ -13,7 +13,7 @@ die() {
 
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly SCRIPT_DIR
-readonly SCANNER="${SCRIPT_DIR}/../account_scanner.py"
+readonly SCANNER="${SCRIPT_DIR}/../src/account_scanner.py"
 readonly CREDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/account_scanner/credentials"
 
 [[ -f $SCANNER ]] || die "Scanner not found: $SCANNER"

@@ -146,12 +146,10 @@ class ModerationCog(commands.Cog, name="Moderation"):
         if results.get("reddit"):
             reddit = results["reddit"]
             assert reddit is not None
-            reddit_chunks: list[str] = []
             clean_username = discord.utils.escape_markdown(
                 discord.utils.escape_mentions(username)
             ).replace("<@", "<\\@")
-            current_lines = [f"**🤖 Reddit Toxicity Analysis for {clean_username}:**"]
-            current_len = len(current_lines[0]) + 1
+            items: list[str] = []
             for item in reddit:
                 preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
                 item_text = "\n".join(
@@ -169,7 +167,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 )
                 items.append(item_text)
 
-            header = f"**🤖 Reddit Toxicity Analysis for {username}:**"
+            header = f"**🤖 Reddit Toxicity Analysis for {clean_username}:**"
             reddit_chunks = chunk_message(items, header=header, max_length=1900)
             for chunk in reddit_chunks:
                 await _send(chunk)
@@ -231,10 +229,17 @@ class ModerationCog(commands.Cog, name="Moderation"):
         clean_username = discord.utils.escape_markdown(
             discord.utils.escape_mentions(username)
         ).replace("<@", "<\\@")
-        await ctx.send(
-            f"🔍 Scanning **{clean_username}** (mode: {mode})...",
-            allowed_mentions=discord.AllowedMentions.none(),
-        )
+        status_message: discord.Message | None = None
+        if ctx.interaction:
+            await ctx.send(
+                f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        else:
+            status_message = await ctx.send(
+                f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
             ctx.author.name,
@@ -308,6 +313,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if ctx.interaction:
                 await ctx.interaction.edit_original_response(content=None, embed=embed)
             else:
+                assert status_message is not None
                 try:
                     await status_message.edit(content=None, embed=embed)
                 except (discord.NotFound, discord.Forbidden):
