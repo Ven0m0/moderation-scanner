@@ -144,7 +144,7 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
     assert len(results) == 1
 
 
-async def test_sherlock_scan_places_username_after_flags() -> None:
+async def test_sherlock_scan_command_order() -> None:
     captured_cmd: tuple[str, ...] | None = None
 
     class FakeProcess:
@@ -176,7 +176,7 @@ async def test_sherlock_scan_places_username_after_flags() -> None:
     )
 
 
-async def test_sherlock_scan_uses_partial_output_after_timeout() -> None:
+async def test_sherlock_scan_timeout_recovery() -> None:
     class FakeReader:
         def __init__(self, data: bytes) -> None:
             self._data = data
