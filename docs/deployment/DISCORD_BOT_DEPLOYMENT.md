@@ -37,7 +37,7 @@ DISCORD_BOT_TOKEN=your_discord_bot_token_here
 PERSPECTIVE_API_KEY=your_perspective_api_key
 REDDIT_CLIENT_ID=your_reddit_client_id
 REDDIT_CLIENT_SECRET=your_reddit_client_secret
-REDDIT_USER_AGENT=account-scanner-bot/1.2.3
+REDDIT_USER_AGENT=account-scanner-bot/1.3.0
 
 # Optional - Admin Controls
 ADMIN_USER_IDS=123456789,987654321  # Comma-separated Discord user IDs
@@ -158,6 +158,10 @@ sudo systemctl status discord-scanner-bot
 
 Use the repository `Dockerfile` and `docker-compose.yml`, then create a local `.env` file from
 `.env.example`.
+
+The container image installs the package and starts it with the `scanner-bot` entry point.
+Only `DISCORD_BOT_TOKEN` is required for startup; Reddit, Perspective, admin, and log channel
+settings stay optional and enable the related bot features when provided.
 
 Deploy:
 
