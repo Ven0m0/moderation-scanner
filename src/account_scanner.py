@@ -308,8 +308,6 @@ class SherlockScanner:
         log.info("🔎 Sherlock:  Scanning '%s'...", username)
         cmd = [
             "sherlock",
-            "--",
-            username,
             "--timeout",
             str(timeout_seconds),
             "--no-color",
@@ -317,6 +315,7 @@ class SherlockScanner:
         ]
         if output_dir:
             cmd.extend(["--output", str(output_dir / f"{username}.txt")])
+        cmd.extend(["--", username])
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -330,9 +329,24 @@ class SherlockScanner:
                 )
             except TimeoutError:
                 proc.kill()
+                partial_stdout = b""
+                partial_stderr = b""
+                if proc.stdout is not None:
+                    try:
+                        partial_stdout = await asyncio.wait_for(proc.stdout.read(), timeout=2.0)
+                    except (OSError, RuntimeError, ValueError, TimeoutError):
+                        log.debug("🔎 Sherlock: failed to recover partial stdout", exc_info=True)
+                if proc.stderr is not None:
+                    try:
+                        partial_stderr = await asyncio.wait_for(proc.stderr.read(), timeout=2.0)
+                    except (OSError, RuntimeError, ValueError, TimeoutError):
+                        log.debug("🔎 Sherlock: failed to recover partial stderr", exc_info=True)
                 await proc.wait()
-                log.warning("🔎 Sherlock: timed out after %ds", timeout_seconds)
-                stdout, stderr = b"", b""
+                log.warning(
+                    "🔎 Sherlock: timed out after %ds; using partial results",
+                    timeout_seconds,
+                )
+                stdout, stderr = partial_stdout, partial_stderr
 
             if stderr_text := stderr.decode(errors="ignore").strip():
                 log.warning("🔎 Sherlock stderr:\n%s", stderr_text)
@@ -341,7 +355,7 @@ class SherlockScanner:
 
             results = self._parse_stdout(stdout.decode(errors="ignore")) if stdout else []
 
-            if proc.returncode and proc.returncode != 0:
+            if proc.returncode is not None and proc.returncode != 0:
                 log.error("🔎 Sherlock: process exited with code %d", proc.returncode)
             log.info(
                 "🔎 Sherlock: %s",

@@ -1,5 +1,6 @@
 """Tests for account_scanner core logic."""
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -141,6 +142,80 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
     text = "[+] GitHub: https://github.com/alice\n[+] GitHub: https://github.com/alice"
     results = SherlockScanner._parse_stdout(text)
     assert len(results) == 1
+
+
+async def test_sherlock_scan_places_username_after_flags() -> None:
+    captured_cmd: tuple[str, ...] | None = None
+
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return (b"[+] GitHub: https://github.com/alice\n", b"")
+
+    async def fake_create_subprocess_exec(*cmd: str, **kwargs: object) -> FakeProcess:
+        nonlocal captured_cmd
+        captured_cmd = cmd
+        assert kwargs["stdout"] == asyncio.subprocess.PIPE
+        assert kwargs["stderr"] == asyncio.subprocess.PIPE
+        return FakeProcess()
+
+    with patch("account_scanner.asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
+        results = await SherlockScanner().scan("alice", timeout_seconds=120, verbose=False)
+
+    assert results[0]["url"] == "https://github.com/alice"
+    assert captured_cmd == (
+        "sherlock",
+        "--timeout",
+        "120",
+        "--no-color",
+        "--print-found",
+        "--",
+        "alice",
+    )
+
+
+async def test_sherlock_scan_uses_partial_output_after_timeout() -> None:
+    class FakeReader:
+        def __init__(self, data: bytes) -> None:
+            self._data = data
+
+        async def read(self) -> bytes:
+            return self._data
+
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.stdout = FakeReader(b"[+] GitHub: https://github.com/alice\n")
+            self.stderr = FakeReader(b"")
+            self.returncode = -9
+            self.killed = False
+            self.waited = False
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            raise TimeoutError
+
+        def kill(self) -> None:
+            self.killed = True
+
+        async def wait(self) -> None:
+            self.waited = True
+
+    proc = FakeProcess()
+
+    with patch("account_scanner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+        results = await SherlockScanner().scan("alice", timeout_seconds=1, verbose=False)
+
+    assert proc.killed is True
+    assert proc.waited is True
+    assert results == [
+        {
+            "platform": "GitHub",
+            "url": "https://github.com/alice",
+            "status": "Claimed",
+            "response_time": None,
+        }
+    ]
 
 
 async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.MonkeyPatch) -> None:
