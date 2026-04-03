@@ -87,6 +87,7 @@ PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/commen
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
 SHERLOCK_PARTIAL_READ_TIMEOUT: Final = 2.0
+SHERLOCK_PARTIAL_READ_EXCEPTIONS: Final = (OSError, RuntimeError, ValueError, TimeoutError)
 ATTRIBUTES: Final = ("TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT")
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
 HTTP_OK: Final = 200
@@ -340,7 +341,7 @@ class SherlockScanner:
                             proc.stdout.read(),
                             timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
                         )
-                    except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
+                    except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
                         log.debug(
                             "🔎 Sherlock: failed to recover partial stdout: %s",
                             type(exc).__name__,
@@ -352,7 +353,7 @@ class SherlockScanner:
                             proc.stderr.read(),
                             timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
                         )
-                    except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
+                    except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
                         log.debug(
                             "🔎 Sherlock: failed to recover partial stderr: %s",
                             type(exc).__name__,
