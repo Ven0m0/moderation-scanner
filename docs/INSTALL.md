@@ -118,7 +118,6 @@ makepkg -si
 - `python >= 3.13`
 - `python-httpx[http2]`
 - `python-orjson`
-- `python-asyncpraw`
 - `python-aiofiles`
 
 ### Optional Dependencies

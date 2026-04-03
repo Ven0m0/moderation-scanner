@@ -6,7 +6,7 @@ Canonical AI-agent guidance for this repository.
 ## Project snapshot
 - Project: Account Scanner / moderation-scanner
 - Runtime: Python 3.13+
-- Core stack: `asyncio`, `httpx[http2]`, `asyncpraw`, `discord.py`, `orjson`, `aiofiles`
+- Core stack: `asyncio`, `httpx[http2]`, `discord.py`, `orjson`, `aiofiles`
 - Quality tools: Ruff, Mypy (strict), Pytest, pytest-asyncio
 - Package entry points: `account-scanner` -> `account_scanner:main`, `scanner-bot` -> `discord_bot:main`
 

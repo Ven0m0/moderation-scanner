@@ -105,7 +105,6 @@ python -m account_scanner username --mode reddit
 - `python` (≥3.11)
 - `python-httpx`
 - `python-orjson`
-- `python-asyncpraw`
 - `python-aiofiles`
 
 ### Optional (optdepends)

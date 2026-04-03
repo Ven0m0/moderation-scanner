@@ -2,9 +2,10 @@
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
-from account_scanner import RateLimiter, ScanConfig, SherlockScanner
+from account_scanner import RateLimiter, RedditScanner, ScanConfig, SherlockScanner
 
 DEFAULT_THRESHOLD = 0.7
 
@@ -140,3 +141,124 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
     text = "[+] GitHub: https://github.com/alice\n[+] GitHub: https://github.com/alice"
     results = SherlockScanner._parse_stdout(text)
     assert len(results) == 1
+
+
+async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    client_id = "client-id"
+    client_secret = "client-secret"
+    scanner = RedditScanner(
+        ScanConfig(
+            username="alice",
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent="account-scanner-test",
+        )
+    )
+    requests: list[tuple[str, str]] = []
+
+    async def fake_post(
+        self: httpx.AsyncClient, url: str, **kwargs: object
+    ) -> httpx.Response:
+        requests.append(("POST", url))
+        assert kwargs["data"] == {"grant_type": "client_credentials"}
+        assert kwargs["auth"] == (client_id, client_secret)
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={"access_token": "token"},
+        )
+
+    async def fake_get(
+        self: httpx.AsyncClient, url: str, **kwargs: object
+    ) -> httpx.Response:
+        requests.append(("GET", url))
+        assert kwargs["params"]["sort"] == "new"
+        assert kwargs["params"]["raw_json"] == 1
+        assert self.headers["Authorization"] == "Bearer token"
+        if url == "https://oauth.reddit.com/user/alice/comments":
+            assert kwargs["params"]["limit"] == scanner.config.comments
+            return httpx.Response(
+                200,
+                request=httpx.Request("GET", url),
+                json={
+                    "data": {
+                        "children": [
+                            {
+                                "data": {
+                                    "subreddit": "python",
+                                    "body": "hello",
+                                    "created_utc": 123.0,
+                                }
+                            }
+                        ]
+                    }
+                },
+            )
+        assert url == "https://oauth.reddit.com/user/alice/submitted"
+        assert kwargs["params"]["limit"] == scanner.config.posts
+        return httpx.Response(
+            200,
+            request=httpx.Request("GET", url),
+            json={
+                "data": {
+                    "children": [
+                        {
+                            "data": {
+                                "subreddit": "asyncio",
+                                "title": "post",
+                                "selftext": "body",
+                                "created_utc": 456.0,
+                            }
+                        }
+                    ]
+                }
+            },
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    items = await scanner._fetch_items()
+
+    assert items == [
+        ("comment", "python", "hello", 123.0),
+        ("post", "asyncio", "post\nbody", 456.0),
+    ]
+    assert requests == [
+        ("POST", "https://www.reddit.com/api/v1/access_token"),
+        ("GET", "https://oauth.reddit.com/user/alice/comments"),
+        ("GET", "https://oauth.reddit.com/user/alice/submitted"),
+    ]
+
+
+async def test_reddit_fetch_items_returns_none_on_http_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client_id = "client-id"
+    client_secret = "client-secret"
+    scanner = RedditScanner(
+        ScanConfig(
+            username="alice",
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    )
+
+    async def fake_post(
+        self: httpx.AsyncClient, url: str, **kwargs: object
+    ) -> httpx.Response:
+        return httpx.Response(
+            401,
+            request=httpx.Request("POST", url),
+            json={"message": "Unauthorized"},
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    assert await scanner._fetch_items() is None
+
+
+async def test_reddit_fetch_items_returns_none_when_credentials_missing() -> None:
+    scanner = RedditScanner(ScanConfig(username="alice"))
+
+    assert await scanner._fetch_items() is None
