@@ -86,6 +86,7 @@ _sherlock_available_thread_lock = threading.Lock()
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
+SHERLOCK_PARTIAL_READ_TIMEOUT: Final = 2.0
 ATTRIBUTES: Final = ("TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT")
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
 HTTP_OK: Final = 200
@@ -333,12 +334,18 @@ class SherlockScanner:
                 partial_stderr = b""
                 if proc.stdout is not None:
                     try:
-                        partial_stdout = await asyncio.wait_for(proc.stdout.read(), timeout=2.0)
+                        partial_stdout = await asyncio.wait_for(
+                            proc.stdout.read(),
+                            timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
+                        )
                     except (OSError, RuntimeError, ValueError, TimeoutError):
                         log.debug("🔎 Sherlock: failed to recover partial stdout", exc_info=True)
                 if proc.stderr is not None:
                     try:
-                        partial_stderr = await asyncio.wait_for(proc.stderr.read(), timeout=2.0)
+                        partial_stderr = await asyncio.wait_for(
+                            proc.stderr.read(),
+                            timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
+                        )
                     except (OSError, RuntimeError, ValueError, TimeoutError):
                         log.debug("🔎 Sherlock: failed to recover partial stderr", exc_info=True)
                 await proc.wait()
