@@ -21,4 +21,4 @@ readonly CREDS="${XDG_CONFIG_HOME:-$HOME/.config}/account_scanner/credentials"
 [[ -f $CREDS ]] && source "$CREDS"
 [[ -z ${DISCORD_BOT_TOKEN:-} ]] && die "DISCORD_BOT_TOKEN not set"
 mkdir -p scans
-exec python3 discord_bot.py
+exec python3 "$SCRIPT_DIR/../src/discord_bot.py"
