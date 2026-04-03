@@ -454,7 +454,11 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
-                    content = f"{title}\n{selftext}" if title and selftext else title or selftext
+                    content = (
+                        f"{title}\n{selftext}"
+                        if title != "" and selftext != ""
+                        else title or selftext
+                    )
                     items.append(("post", subreddit, content, float(created_utc)))
         return items
 

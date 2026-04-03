@@ -144,11 +144,13 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
 
 
 async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    client_id = "client-id"
+    client_secret = "client-secret"
     scanner = RedditScanner(
         ScanConfig(
             username="alice",
-            client_id="client-id",
-            client_secret="client-secret",
+            client_id=client_id,
+            client_secret=client_secret,
             user_agent="account-scanner-test",
         )
     )
@@ -159,7 +161,7 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
     ) -> httpx.Response:
         requests.append(("POST", url))
         assert kwargs["data"] == {"grant_type": "client_credentials"}
-        assert kwargs["auth"] == ("client-id", "client-secret")
+        assert kwargs["auth"] == (client_id, client_secret)
         return httpx.Response(
             200,
             request=httpx.Request("POST", url),
@@ -229,11 +231,13 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
 async def test_reddit_fetch_items_returns_none_on_http_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    client_id = "client-id"
+    client_secret = "client-secret"
     scanner = RedditScanner(
         ScanConfig(
             username="alice",
-            client_id="client-id",
-            client_secret="client-secret",
+            client_id=client_id,
+            client_secret=client_secret,
         )
     )
 
