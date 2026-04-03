@@ -10,7 +10,6 @@ depends=(
   python>=3.13
   python-httpx
   python-orjson
-  python-asyncpraw
   python-aiofiles
   python-discord.py
 )

@@ -17,7 +17,6 @@ classifiers = [
 dependencies = [
   "httpx[http2]~=0.28.1",
   "orjson>=3.11.5,<4.0.0",
-  "asyncpraw>=7.8.1,<8.0.0",
   "uvloop~=0.22.1; platform_system != 'Windows'",
   "aiofiles~=25.1",
   "discord.py>=2.0.0,<3.0.0",

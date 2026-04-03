@@ -36,9 +36,6 @@ import aiofiles
 import httpx
 import orjson
 import uvloop
-from asyncpraw import Reddit
-from asyncpraw.models import Redditor
-from asyncprawcore import AsyncPrawcoreException
 
 # --- PEP 695 type aliases ---
 type ScanMode = Literal["sherlock", "reddit", "both"]
@@ -405,48 +402,91 @@ class RedditScanner:
             log.warning("Perspective API parse error; returning empty scores: %s", exc)
         return {}
 
-    async def _fetch_comments(self, user: Redditor) -> list[tuple[str, str, str, float]]:
+    async def _get_access_token(self, client: httpx.AsyncClient) -> str:
+        cfg = self.config
+        response = await client.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(cfg.client_id or "", cfg.client_secret or ""),
+            data={"grant_type": "client_credentials"},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        token = data.get("access_token")
+        if not isinstance(token, str) or not token:
+            raise ValueError("Reddit access token missing from API response")
+        return token
+
+    async def _fetch_listing(
+        self,
+        client: httpx.AsyncClient,
+        path: str,
+        limit: int,
+    ) -> list[tuple[str, str, str, float]]:
+        response = await client.get(
+            f"https://oauth.reddit.com/user/{self.config.username}/{path}",
+            params={"sort": "new", "limit": limit, "raw_json": 1},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        children = payload.get("data", {}).get("children", [])
+        if not isinstance(children, list):
+            raise ValueError("Reddit listing response missing children")
         items: list[tuple[str, str, str, float]] = []
-        async for c in user.comments.new(limit=self.config.comments):
-            items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            data = child.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            subreddit = data.get("subreddit")
+            created_utc = data.get("created_utc")
+            if not isinstance(subreddit, str) or not isinstance(created_utc, int | float):
+                continue
+            if path == "comments":
+                body = data.get("body")
+                if isinstance(body, str):
+                    items.append(("comment", subreddit, body, float(created_utc)))
+            else:
+                title = data.get("title")
+                selftext = data.get("selftext")
+                if isinstance(title, str) and isinstance(selftext, str):
+                    items.append(("post", subreddit, f"{title}\n{selftext}", float(created_utc)))
         return items
 
-    async def _fetch_posts(self, user: Redditor) -> list[tuple[str, str, str, float]]:
-        items: list[tuple[str, str, str, float]] = []
-        async for s in user.submissions.new(limit=self.config.posts):
-            items.append(
-                ("post", s.subreddit.display_name, f"{s.title}\n{s.selftext}", s.created_utc)
-            )
-        return items
+    async def _fetch_comments(self, client: httpx.AsyncClient) -> list[tuple[str, str, str, float]]:
+        return await self._fetch_listing(client, "comments", self.config.comments)
+
+    async def _fetch_posts(self, client: httpx.AsyncClient) -> list[tuple[str, str, str, float]]:
+        return await self._fetch_listing(client, "submitted", self.config.posts)
 
     async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
         """Fetch Reddit comments and posts concurrently via TaskGroup."""
         cfg = self.config
         log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
-        reddit: Reddit | None = None
         items: list[tuple[str, str, str, float]] | None = None
+        if not cfg.client_id or not cfg.client_secret:
+            log.error("Reddit fetch error: missing Reddit API credentials")
+            return None
         try:
-            reddit = Reddit(
-                client_id=cfg.client_id,
-                client_secret=cfg.client_secret,
-                user_agent=cfg.user_agent,
-                requestor_kwargs={"timeout": DEFAULT_TIMEOUT},
-            )
-            user = await reddit.redditor(cfg.username)
-            async with asyncio.TaskGroup() as tg:
-                comments_t = tg.create_task(self._fetch_comments(user))
-                posts_t = tg.create_task(self._fetch_posts(user))
-            merged = comments_t.result() + posts_t.result()
-            items = merged if merged else None
-        except* AsyncPrawcoreException as eg:
-            for exc in eg.exceptions:
-                log.error("Reddit API Error: %s", exc)
-        except* (OSError, ValueError, RuntimeError) as eg:
-            for exc in eg.exceptions:
-                log.error("Reddit fetch error: %s", exc)
-        finally:
-            if reddit is not None:
-                await reddit.close()
+            async with httpx.AsyncClient(headers={"User-Agent": cfg.user_agent or ""}) as client:
+                token = await self._get_access_token(client)
+                client.headers["Authorization"] = f"Bearer {token}"
+                async with asyncio.TaskGroup() as tg:
+                    comments_t = tg.create_task(self._fetch_comments(client))
+                    posts_t = tg.create_task(self._fetch_posts(client))
+                merged = comments_t.result() + posts_t.result()
+                items = merged if merged else None
+        except* httpx.HTTPStatusError as status_group:
+            for status_error in status_group.exceptions:
+                log.error("Reddit API Error: %s", status_error)
+        except* httpx.HTTPError as http_group:
+            for http_error in http_group.exceptions:
+                log.error("Reddit HTTP error: %s", http_error)
+        except* (OSError, ValueError, RuntimeError) as fetch_group:
+            for fetch_error in fetch_group.exceptions:
+                log.error("Reddit fetch error: %s", fetch_error)
         return items
 
     async def scan(self) -> list[RedditFlaggedItem] | None:
