@@ -46,7 +46,6 @@ docs/
 tests/
 test_*.py
 AGENTS.md
-CLAUDE.md
 LICENSE
 Makefile
 config/

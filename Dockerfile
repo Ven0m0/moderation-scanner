@@ -51,7 +51,5 @@ RUN python -m pip install --no-cache-dir /tmp/wheels/* && \
 
 USER botuser
 
-VOLUME ["/app/scans"]
-
 # Run the Discord bot
 CMD ["scanner-bot"]
