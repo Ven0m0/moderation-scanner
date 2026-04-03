@@ -318,6 +318,7 @@ class SherlockScanner:
         if output_dir:
             cmd.extend(["--output", str(output_dir / f"{username}.txt")])
         cmd.extend(["--", username])
+
         async def _read_stream(stream: asyncio.StreamReader | None) -> bytes:
             return (await stream.read()) if stream is not None else b""
 
