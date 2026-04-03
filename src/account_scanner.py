@@ -323,12 +323,14 @@ class SherlockScanner:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            timed_out = False
             try:
                 stdout, stderr = await asyncio.wait_for(
                     proc.communicate(),
                     timeout=timeout_seconds + SHERLOCK_BUFFER,
                 )
             except TimeoutError:
+                timed_out = True
                 proc.kill()
                 partial_stdout = b""
                 partial_stderr = b""
@@ -370,7 +372,7 @@ class SherlockScanner:
 
             results = self._parse_stdout(stdout.decode(errors="ignore")) if stdout else []
 
-            if proc.returncode is not None and proc.returncode != 0:
+            if not timed_out and proc.returncode is not None and proc.returncode != 0:
                 log.error("🔎 Sherlock: process exited with code %d", proc.returncode)
             log.info(
                 "🔎 Sherlock: %s",
