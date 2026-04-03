@@ -1,62 +1,57 @@
-# 🤖 Project Information for AI Agents
+# AGENTS.md
 
-Welcome to the **Account Scanner** project. This document provides essential context and instructions for AI assistants, utilizing progressive disclosure to prioritize critical information.
+Canonical AI-agent guidance for this repository.
+`CLAUDE.md` must remain a symlink to this file.
 
-## 🎯 Quick Project Summary
+## Project snapshot
+- Project: Account Scanner / moderation-scanner
+- Runtime: Python 3.13+
+- Core stack: `asyncio`, `httpx[http2]`, `asyncpraw`, `discord.py`, `orjson`, `aiofiles`
+- Quality tools: Ruff, Mypy (strict), Pytest, pytest-asyncio
+- Package entry points: `account-scanner` -> `account_scanner:main`, `scanner-bot` -> `discord_bot:main`
 
-This project is a multi-source account scanner that combines Reddit toxicity analysis (via Perspective API) with OSINT username enumeration (via Sherlock). It also includes a Discord bot for moderation.
+## Repository map
+- `account_scanner.py`: main scanning pipeline, CLI entry point, cache/rate-limit helpers
+- `discord_bot.py`: Discord bot bootstrap and config validation
+- `cogs/`: bot command cogs
+- `tests/`: primary test suite
+- `test_*.py`: additional root-level pytest files
+- `docs/`: user and contributor docs
+- `pyproject.toml`: dependencies and tool configuration
+- `Makefile`: common development commands
 
-- **Stack:** Python 3.11+, Async (httpx, asyncio), `discord.py`
-- **Linting & Formatting:** Ruff
-- **Type Checking:** Mypy
-- **Testing:** Pytest
+## Setup and validation
+- Install dev dependencies: `pip install -e ".[dev]"`
+- Format: `make format`
+- Format check: `make format-check`
+- Lint: `make lint`
+- Type check: `make type`
+- Combined quality checks: `make check`
+- Tests via Makefile: `make test`
+- Strict test command for automation: `pytest -v --tb=short`
+- `make test` uses `|| true`, so it suppresses exit codes and is unsuitable for CI/CD
 
----
+## Coding expectations
+- Keep changes small and targeted; preserve existing public behavior unless the task requires change.
+- Prefer async patterns for I/O-bound work; do not block the event loop.
+- Add type hints to new or modified Python functions; the repo uses `mypy` strict mode.
+- Follow Ruff formatting defaults from `pyproject.toml` (100-char line length, double quotes, sorted imports).
+- Add or update tests when behavior changes.
+- Match existing module structure instead of introducing new abstractions unless needed.
 
-<details>
-<summary><h2>🛠️ Development Setup & Tools</h2></summary>
+## Testing notes
+- Pytest collects `test_*.py` from both `tests/` and the repository root.
+- Async tests use `pytest-asyncio` with `asyncio_mode = "auto"`.
+- When test failures need a real exit code, run `pytest` directly instead of relying on `make test`.
 
-### Key Commands (Makefile)
-- `make check`: Runs formatting, linting, and type checking.
-- `make format`: Formats code with Ruff.
-- `make lint-fix`: Auto-fixes Ruff linting issues.
-- `make type`: Runs Mypy type checking.
-- `make test`: Runs Pytest suite.
-- `make dev`: Installs development dependencies.
+## Security and operations
+- Never hardcode tokens, API keys, or secrets; use environment variables and documented config files.
+- Be careful with Reddit, Perspective API, Discord, and Sherlock rate limits and network failures.
+- Avoid logging sensitive identifiers or credentials.
+- Prefer existing dependencies; add new ones only when necessary and justified.
 
-### Environment Management
-- Uses `pip install -e ".[dev]"` for local dev installation.
-- Relies on `pyproject.toml` for dependency configuration.
-- We require type hinting for all newly written functions.
-
-</details>
-
-<details>
-<summary><h2>📐 Code Architecture & Conventions</h2></summary>
-
-### Architecture Notes
-- The codebase uses asynchronous Python heavily (e.g., `asyncio`, `httpx` with http2). When making I/O bound requests, always use async/await.
-- Keep dependencies updated but avoid introducing unnecessary ones.
-- The Discord bot (`discord_bot.py`) uses `app_commands` for slash commands.
-- The core scanner logic is in `account_scanner.py`.
-
-### Coding Standards
-1. **Typing:** Use strict type hints (`typing` module) wherever possible.
-2. **Formatting:** Follow the Ruff configuration defined in `pyproject.toml`.
-   - Line length: 100
-   - Quote style: double
-   - Indent style: space
-3. **Error Handling:** Use `try/except` gracefully to handle API limits or failures.
-4. **Docs:** Add docstrings to public classes and complex functions.
-
-</details>
-
-<details>
-<summary><h2>🔐 Security & Performance</h2></summary>
-
-- Avoid hardcoding secrets. Always use environment variables (see `.env.example`).
-- Be mindful of rate limits when interacting with Reddit, Perspective API, and Sherlock.
-- Ensure that the async event loop (`uvloop` where applicable) does not block.
-- Run `make security` or `make audit` periodically.
-
-</details>
+## Agent workflow
+- Read this file before making changes.
+- Use `AGENTS.md` as the canonical project context.
+- Keep `.github/copilot-instructions.md` brief and Copilot-specific.
+- If AI guidance changes, update this file first and keep `CLAUDE.md` as a symlink to it.
