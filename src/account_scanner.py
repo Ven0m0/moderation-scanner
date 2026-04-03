@@ -26,10 +26,11 @@ import sys
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Iterator, Literal, TypedDict
+from typing import Final, Literal, TypedDict
 
 import aiofiles
 import httpx
