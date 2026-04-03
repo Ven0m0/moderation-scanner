@@ -454,7 +454,8 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
-                    items.append(("post", subreddit, f"{title}\n{selftext}", float(created_utc)))
+                    content = "\n".join(part for part in (title, selftext) if part)
+                    items.append(("post", subreddit, content, float(created_utc)))
         return items
 
     async def _fetch_comments(self, client: httpx.AsyncClient) -> list[tuple[str, str, str, float]]:
@@ -468,11 +469,11 @@ class RedditScanner:
         cfg = self.config
         log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
         items: list[tuple[str, str, str, float]] | None = None
-        if not cfg.client_id or not cfg.client_secret:
+        if not cfg.client_id or not cfg.client_secret or not cfg.user_agent:
             log.error("Reddit fetch error: missing Reddit API credentials")
             return None
         try:
-            async with httpx.AsyncClient(headers={"User-Agent": cfg.user_agent or ""}) as client:
+            async with httpx.AsyncClient(headers={"User-Agent": cfg.user_agent}) as client:
                 token = await self._get_access_token(client)
                 client.headers["Authorization"] = f"Bearer {token}"
                 async with asyncio.TaskGroup() as tg:
