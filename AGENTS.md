@@ -27,7 +27,8 @@ Canonical AI-agent guidance for this repository.
 - Lint: `make lint`
 - Type check: `make type`
 - Combined quality checks: `make check`
-- Tests: `make test` for the Makefile wrapper, or `pytest -v --tb=short` when you need failures to stop automation because `make test` ends with `|| true`
+- Tests via Makefile: `make test`
+- Strict test command for automation: `pytest -v --tb=short` (`make test` ends with `|| true`)
 
 ## Coding expectations
 - Keep changes small and targeted; preserve existing public behavior unless the task requires change.
