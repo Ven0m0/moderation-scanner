@@ -28,7 +28,8 @@ Canonical AI-agent guidance for this repository.
 - Type check: `make type`
 - Combined quality checks: `make check`
 - Tests via Makefile: `make test`
-- Strict test command for automation: `pytest -v --tb=short` (`make test` uses `|| true`, so it suppresses exit codes and is unsuitable for CI/CD)
+- Strict test command for automation: `pytest -v --tb=short`
+- `make test` uses `|| true`, so it suppresses exit codes and is unsuitable for CI/CD
 
 ## Coding expectations
 - Keep changes small and targeted; preserve existing public behavior unless the task requires change.
