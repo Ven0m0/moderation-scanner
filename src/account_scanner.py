@@ -404,9 +404,11 @@ class RedditScanner:
 
     async def _get_access_token(self, client: httpx.AsyncClient) -> str:
         cfg = self.config
+        if not cfg.client_id or not cfg.client_secret:
+            raise ValueError("Reddit API credentials are required")
         response = await client.post(
             "https://www.reddit.com/api/v1/access_token",
-            auth=(cfg.client_id or "", cfg.client_secret or ""),
+            auth=(cfg.client_id, cfg.client_secret),
             data={"grant_type": "client_credentials"},
             timeout=DEFAULT_TIMEOUT,
         )

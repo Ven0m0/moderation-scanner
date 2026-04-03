@@ -249,3 +249,9 @@ async def test_reddit_fetch_items_returns_none_on_http_error(
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
 
     assert await scanner._fetch_items() is None
+
+
+async def test_reddit_fetch_items_returns_none_when_credentials_missing() -> None:
+    scanner = RedditScanner(ScanConfig(username="alice"))
+
+    assert await scanner._fetch_items() is None
