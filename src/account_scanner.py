@@ -415,7 +415,7 @@ class RedditScanner:
         response.raise_for_status()
         data = response.json()
         token = data.get("access_token")
-        if not isinstance(token, str) or not token:
+        if not (isinstance(token, str) and token):
             raise ValueError("Reddit access token missing from API response")
         return token
 
@@ -454,8 +454,8 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
-                    has_title = title != ""
-                    has_selftext = selftext != ""
+                    has_title = bool(title)
+                    has_selftext = bool(selftext)
                     content = f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
                     items.append(("post", subreddit, content, float(created_utc)))
         return items

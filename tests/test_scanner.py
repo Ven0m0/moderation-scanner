@@ -174,7 +174,8 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
         requests.append(("GET", url))
         assert kwargs["params"]["sort"] == "new"
         assert kwargs["params"]["raw_json"] == 1
-        assert kwargs["params"]["limit"] in (scanner.config.comments, scanner.config.posts)
+        expected_limit = scanner.config.comments if url.endswith("/comments") else scanner.config.posts
+        assert kwargs["params"]["limit"] == expected_limit
         assert self.headers["Authorization"] == "Bearer token"
         if url.endswith("/comments"):
             return httpx.Response(
