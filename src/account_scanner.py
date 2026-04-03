@@ -444,7 +444,7 @@ class RedditScanner:
                 continue
             subreddit = data.get("subreddit")
             created_utc = data.get("created_utc")
-            if not isinstance(subreddit, str) or not isinstance(created_utc, int | float):
+            if not isinstance(subreddit, str) or not isinstance(created_utc, (int, float)):
                 continue
             if path == "comments":
                 body = data.get("body")
@@ -454,11 +454,9 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
-                    content = (
-                        f"{title}\n{selftext}"
-                        if title != "" and selftext != ""
-                        else title or selftext
-                    )
+                    has_title = title != ""
+                    has_selftext = selftext != ""
+                    content = f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
                     items.append(("post", subreddit, content, float(created_utc)))
         return items
 
