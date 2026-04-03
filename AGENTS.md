@@ -28,7 +28,7 @@ Canonical AI-agent guidance for this repository.
 - Type check: `make type`
 - Combined quality checks: `make check`
 - Test suite: `pytest -v --tb=short`
-- Convenience target: `make test` (a legacy convenience target that currently wraps `pytest` with `|| true`, so use direct `pytest` commands for strict pass/fail validation)
+- Legacy target: `make test` (ignores failures; use `pytest` directly for strict validation)
 
 ## Coding expectations
 - Keep changes small and targeted; preserve existing public behavior unless the task requires change.
