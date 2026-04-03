@@ -1,5 +1,6 @@
 """Tests for account_scanner core logic."""
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
