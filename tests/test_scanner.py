@@ -147,12 +147,21 @@ def test_sherlock_parse_stdout_deduplicates() -> None:
 async def test_sherlock_scan_command_order() -> None:
     captured_cmd: tuple[str, ...] | None = None
 
+    class FakeStreamReader:
+        def __init__(self, data: bytes) -> None:
+            self._data = data
+
+        async def read(self) -> bytes:
+            return self._data
+
     class FakeSuccessfulProcess:
         def __init__(self) -> None:
-            self.returncode = 0
+            self.returncode: int = 0
+            self.stdout = FakeStreamReader(b"[+] GitHub: https://github.com/alice\n")
+            self.stderr = FakeStreamReader(b"")
 
-        async def communicate(self) -> tuple[bytes, bytes]:
-            return (b"[+] GitHub: https://github.com/alice\n", b"")
+        async def wait(self) -> int:
+            return self.returncode
 
     async def fake_create_subprocess_exec(*cmd: str, **kwargs: object) -> FakeSuccessfulProcess:
         nonlocal captured_cmd
@@ -179,7 +188,9 @@ async def test_sherlock_scan_command_order() -> None:
 
 
 async def test_sherlock_scan_timeout_recovery() -> None:
-    class FakeReader:
+    """Partial Sherlock output is preserved when the subprocess times out."""
+
+    class FakeStreamReader:
         def __init__(self, data: bytes) -> None:
             self._data = data
 
@@ -188,28 +199,37 @@ async def test_sherlock_scan_timeout_recovery() -> None:
 
     class FakeTimeoutProcess:
         def __init__(self) -> None:
-            self.stdout = FakeReader(b"[+] GitHub: https://github.com/alice\n")
-            self.stderr = FakeReader(b"")
-            self.returncode = -9
-            self.killed = False
-            self.waited = False
+            self.stdout = FakeStreamReader(b"[+] GitHub: https://github.com/alice\n")
+            self.stderr = FakeStreamReader(b"")
+            self.returncode: int | None = None
+            self.killed: bool = False
 
-        async def communicate(self) -> tuple[bytes, bytes]:
-            raise TimeoutError
+        async def wait(self) -> int:
+            # Hang until killed; the second call (after proc.kill()) returns immediately.
+            if not self.killed:
+                await asyncio.sleep(9999)
+            self.returncode = -9
+            return -9
 
         def kill(self) -> None:
             self.killed = True
 
-        async def wait(self) -> None:
-            self.waited = True
-
     proc = FakeTimeoutProcess()
 
-    with patch("account_scanner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+    # SHERLOCK_BUFFER is patched so timeout = timeout_seconds + SHERLOCK_BUFFER = 0,
+    # which causes asyncio.wait_for to raise TimeoutError immediately without ever
+    # running the fake proc.wait() coroutine.
+    with (
+        patch("account_scanner.SHERLOCK_BUFFER", -1),
+        patch(
+            "account_scanner.asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=proc),
+        ),
+    ):
         results = await SherlockScanner().scan("alice", timeout_seconds=1, verbose=False)
 
     assert proc.killed is True
-    assert proc.waited is True
+    assert proc.returncode == -9
     assert results == [
         {
             "platform": "GitHub",

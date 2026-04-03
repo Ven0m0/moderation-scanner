@@ -318,53 +318,67 @@ class SherlockScanner:
         if output_dir:
             cmd.extend(["--output", str(output_dir / f"{username}.txt")])
         cmd.extend(["--", username])
+        async def _read_stream(stream: asyncio.StreamReader | None) -> bytes:
+            return (await stream.read()) if stream is not None else b""
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            # Start background readers immediately.  They are NOT cancelled on timeout,
+            # so every byte Sherlock emits is preserved.  After proc.kill(), the OS
+            # closes the write end of both pipes → EOF → the readers complete naturally
+            # with all accumulated data.
+            stdout_task: asyncio.Task[bytes] = asyncio.create_task(_read_stream(proc.stdout))
+            stderr_task: asyncio.Task[bytes] = asyncio.create_task(_read_stream(proc.stderr))
+
             timed_out = False
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(),
-                    timeout=timeout_seconds + SHERLOCK_BUFFER,
-                )
+                await asyncio.wait_for(proc.wait(), timeout=timeout_seconds + SHERLOCK_BUFFER)
+                stdout = await stdout_task
+                stderr = await stderr_task
             except TimeoutError:
                 timed_out = True
-                proc.kill()
-                partial_stdout = b""
-                partial_stderr = b""
-                if proc.stdout is not None:
+                if proc.returncode is None:
                     try:
-                        partial_stdout = await asyncio.wait_for(
-                            proc.stdout.read(),
-                            timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
-                        )
-                    except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
+                        proc.kill()
+                    except ProcessLookupError:
                         log.debug(
-                            "🔎 Sherlock: failed to recover partial stdout: %s",
-                            type(exc).__name__,
-                            exc_info=True,
-                        )
-                if proc.stderr is not None:
-                    try:
-                        partial_stderr = await asyncio.wait_for(
-                            proc.stderr.read(),
-                            timeout=SHERLOCK_PARTIAL_READ_TIMEOUT,
-                        )
-                    except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
-                        log.debug(
-                            "🔎 Sherlock: failed to recover partial stderr: %s",
-                            type(exc).__name__,
+                            "🔎 Sherlock: process exited before kill during timeout recovery",
                             exc_info=True,
                         )
                 await proc.wait()
+                # Readers get EOF from the killed process and complete with partial data.
+                try:
+                    stdout = await asyncio.wait_for(
+                        stdout_task, timeout=SHERLOCK_PARTIAL_READ_TIMEOUT
+                    )
+                except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
+                    stdout_task.cancel()
+                    stdout = b""
+                    log.debug(
+                        "🔎 Sherlock: failed to recover partial stdout: %s",
+                        type(exc).__name__,
+                        exc_info=True,
+                    )
+                try:
+                    stderr = await asyncio.wait_for(
+                        stderr_task, timeout=SHERLOCK_PARTIAL_READ_TIMEOUT
+                    )
+                except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
+                    stderr_task.cancel()
+                    stderr = b""
+                    log.debug(
+                        "🔎 Sherlock: failed to recover partial stderr: %s",
+                        type(exc).__name__,
+                        exc_info=True,
+                    )
                 log.warning(
                     "🔎 Sherlock: timed out after %ds; using partial results",
                     timeout_seconds,
                 )
-                stdout, stderr = partial_stdout, partial_stderr
 
             if stderr_text := stderr.decode(errors="ignore").strip():
                 log.warning("🔎 Sherlock stderr:\n%s", stderr_text)
