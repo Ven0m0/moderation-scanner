@@ -359,7 +359,7 @@ class SherlockScanner:
                     stdout_task.cancel()
                     try:
                         await stdout_task
-                    except (asyncio.CancelledError, Exception):
+                    except asyncio.CancelledError:
                         pass
                     stdout = b""
                     log.debug(
@@ -375,7 +375,7 @@ class SherlockScanner:
                     stderr_task.cancel()
                     try:
                         await stderr_task
-                    except (asyncio.CancelledError, Exception):
+                    except asyncio.CancelledError:
                         pass
                     stderr = b""
                     log.debug(
