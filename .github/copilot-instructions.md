@@ -1,21 +1,21 @@
-# 🤖 GitHub Copilot Instructions
+# GitHub Copilot Instructions
 
-> Canonical, up-to-date project context (stack, tools, commands, conventions, architecture, etc.) lives in `AGENTS.md`. Do not restate or override it here.
+Use `/home/runner/work/moderation-scanner/moderation-scanner/AGENTS.md` as the canonical source of project context.
+Do not duplicate stack, tooling, architecture, or convention details here.
 
-## How Copilot should use this repository
+## Copilot defaults
+- Read `/home/runner/work/moderation-scanner/moderation-scanner/AGENTS.md` before making suggestions or edits.
+- Prefer small, focused changes over rewrites.
+- Preserve public behavior unless the task explicitly requires a change.
+- When code changes affect behavior, update or add tests.
+- Reuse existing libraries and patterns before introducing new dependencies or abstractions.
 
-- When you need project context, first open and read `AGENTS.md` and follow the guidance there.
-- Treat `AGENTS.md` as the single source of truth for technologies, commands, and coding conventions.
-- Prefer suggesting changes that stay consistent with the patterns and examples documented in `AGENTS.md`.
+## Safety rules
+- Never hardcode secrets, API tokens, or credentials.
+- Prefer environment variables and documented configuration files.
+- Avoid logging or exposing sensitive user or service data.
 
-## Suggestions & completions
-
-- Prefer small, focused edits over large rewrites unless explicitly requested.
-- Preserve existing public APIs and behaviour unless the user explicitly asks to change them.
-- When adding dependencies or tools, keep them minimal and explain why they are needed.
-- Where tests exist, update or add tests alongside code changes.
-
-## Security & safety
-
-- Never suggest hard-coded secrets or tokens; use environment variables and configuration instead.
-- Avoid sending or logging sensitive data (tokens, passwords, PII) unless explicitly required and documented.
+## AI-doc maintenance
+- Keep this file short and Copilot-specific.
+- Put durable repository guidance in `/home/runner/work/moderation-scanner/moderation-scanner/AGENTS.md`.
+- Keep `/home/runner/work/moderation-scanner/moderation-scanner/CLAUDE.md` as a symlink to `/home/runner/work/moderation-scanner/moderation-scanner/AGENTS.md`.
