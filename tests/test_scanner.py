@@ -156,9 +156,7 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
     )
     requests: list[tuple[str, str]] = []
 
-    async def fake_post(
-        self: httpx.AsyncClient, url: str, **kwargs: object
-    ) -> httpx.Response:
+    async def fake_post(self: httpx.AsyncClient, url: str, **kwargs: object) -> httpx.Response:
         requests.append(("POST", url))
         assert kwargs["data"] == {"grant_type": "client_credentials"}
         assert kwargs["auth"] == (client_id, client_secret)
@@ -168,9 +166,7 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
             json={"access_token": "token"},
         )
 
-    async def fake_get(
-        self: httpx.AsyncClient, url: str, **kwargs: object
-    ) -> httpx.Response:
+    async def fake_get(self: httpx.AsyncClient, url: str, **kwargs: object) -> httpx.Response:
         requests.append(("GET", url))
         assert kwargs["params"]["sort"] == "new"
         assert kwargs["params"]["raw_json"] == 1
@@ -244,9 +240,7 @@ async def test_reddit_fetch_items_returns_none_on_http_error(
         )
     )
 
-    async def fake_post(
-        self: httpx.AsyncClient, url: str, **kwargs: object
-    ) -> httpx.Response:
+    async def fake_post(self: httpx.AsyncClient, url: str, **kwargs: object) -> httpx.Response:
         return httpx.Response(
             401,
             request=httpx.Request("POST", url),

@@ -458,7 +458,9 @@ class RedditScanner:
                         continue
                     has_title = bool(title)
                     has_selftext = bool(selftext)
-                    content = f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
+                    content = (
+                        f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
+                    )
                     items.append(("post", subreddit, content, float(created_utc)))
         return items
 
