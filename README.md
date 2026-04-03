@@ -199,7 +199,7 @@ python discord_bot.py
 
 **Quick Deploy to Fly.io (FREE):**
 
-See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
+See [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) for deployment steps.
 
 **Full Documentation:**
 - [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) - Complete Fly.io deployment guide
@@ -230,7 +230,6 @@ moderation-scanner/
 │   ├── INSTALL.md             # Installation guide
 │   ├── CONTRIBUTING.md        # Development guide
 │   ├── PACKAGING.md           # Package building guide
-│   ├── changelog.md           # Version history
 │   └── deployment/
 │       ├── DEPLOYMENT.md      # Fly.io deployment
 │       ├── DISCORD_BOT_DEPLOYMENT.md  # Bot deployment options
@@ -240,7 +239,6 @@ moderation-scanner/
 │   └── discord-scanner-bot.service  # Systemd service file
 ├── fly.toml                   # Fly.io deployment config
 ├── Dockerfile                 # Container image
-├── QUICKSTART.md              # 5-minute quick start
 └── README.md                  # This file
 ```
 

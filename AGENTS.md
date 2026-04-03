@@ -11,9 +11,9 @@ Canonical AI-agent guidance for this repository.
 - Package entry points: `account-scanner` -> `account_scanner:main`, `scanner-bot` -> `discord_bot:main`
 
 ## Repository map
-- `account_scanner.py`: main scanning pipeline, CLI entry point, cache/rate-limit helpers
-- `discord_bot.py`: Discord bot bootstrap and config validation
-- `cogs/`: bot command cogs
+- `src/account_scanner.py`: main scanning pipeline, CLI entry point, cache/rate-limit helpers
+- `src/discord_bot.py`: Discord bot bootstrap and config validation
+- `src/cogs/`: bot command cogs
 - `tests/`: primary test suite
 - `test_*.py`: additional root-level pytest files
 - `docs/`: user and contributor docs

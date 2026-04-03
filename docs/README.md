@@ -5,7 +5,7 @@ Welcome to the Account Scanner documentation! This directory contains comprehens
 ## Quick Links
 
 - [Main README](../README.md) - Project overview and features
-- [Quick Start Guide](../QUICKSTART.md) - Deploy to Fly.io in 5 minutes
+- [Deployment Guide](deployment/DEPLOYMENT.md) - Deploy the Discord bot on Fly.io
 
 ## Installation & Setup
 
@@ -56,10 +56,6 @@ All deployment-related documentation is in the [deployment/](deployment/) direct
   - Security best practices
   - Performance optimization
   - Monitoring and alerts
-
-## Changelog
-
-- [changelog.md](changelog.md) - Version history and changes
 
 ## Additional Resources
 

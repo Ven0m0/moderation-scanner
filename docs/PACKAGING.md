@@ -68,7 +68,6 @@ After installation (`/usr/`):
 └── share/
     ├── doc/account-scanner/
     │   ├── README.md
-    │   ├── CHANGELOG.md
     │   └── credentials.template
     └── licenses/account-scanner/
         └── LICENSE
