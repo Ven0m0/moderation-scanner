@@ -454,7 +454,7 @@ class RedditScanner:
                 title = data.get("title")
                 selftext = data.get("selftext")
                 if isinstance(title, str) and isinstance(selftext, str):
-                    content = "\n".join(part for part in (title, selftext) if part)
+                    content = f"{title}\n{selftext}" if title and selftext else title or selftext
                     items.append(("post", subreddit, content, float(created_utc)))
         return items
 
@@ -469,8 +469,8 @@ class RedditScanner:
         cfg = self.config
         log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
         items: list[tuple[str, str, str, float]] | None = None
-        if not cfg.client_id or not cfg.client_secret or not cfg.user_agent:
-            log.error("Reddit fetch error: missing Reddit API credentials")
+        if not cfg.user_agent:
+            log.error("Reddit fetch error: missing Reddit user agent")
             return None
         try:
             async with httpx.AsyncClient(headers={"User-Agent": cfg.user_agent}) as client:
