@@ -27,7 +27,7 @@ Canonical AI-agent guidance for this repository.
 - Lint: `make lint`
 - Type check: `make type`
 - Combined quality checks: `make check`
-- Tests: `make test` for the standard repo target, or `pytest -v --tb=short` for strict pass/fail validation
+- Tests: `make test` for the Makefile wrapper, or `pytest -v --tb=short` for the same run with a real exit status
 
 ## Coding expectations
 - Keep changes small and targeted; preserve existing public behavior unless the task requires change.
