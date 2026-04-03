@@ -1,6 +1,6 @@
 # Deploying Account Scanner Bot to Fly.io
 
-Complete guide for deploying the Discord Account Scanner Bot to Fly.io with production-ready configuration.
+Deployment guide for the Discord Account Scanner Bot to Fly.io with deployment configuration.
 
 ## Table of Contents
 
@@ -285,7 +285,7 @@ fly secrets set DISCORD_BOT_TOKEN="your_discord_token_here" -a moderation-scanne
 2. Select your application
 3. Go to **Bot** section
 4. Scroll to **Privileged Gateway Intents**
-5. Enable **MESSAGE CONTENT INTENT** ✅
+5. Enable **MESSAGE CONTENT INTENT**
 6. Save changes
 7. Restart bot: `fly apps restart -a moderation-scanner`
 
@@ -372,9 +372,9 @@ Fly.io free tier includes:
 - **3GB persistent storage**
 
 **For this bot on free tier:**
-- ✅ 1 instance in 1 region = **FREE**
-- ✅ 256MB RAM for Discord bot = **FREE**
-- ✅ Typical Discord bot traffic = **FREE**
+- 1 instance in 1 region can fit within the free tier
+- 256MB RAM can fit within the free tier
+- Typical bot traffic can fit within the free tier
 
 ### Paid Usage
 
@@ -430,10 +430,10 @@ fly apps start
 
 ### Health Checks (Optional)
 
-To add HTTP health checks, modify `discord_bot.py` to add a simple HTTP server:
+To add HTTP health checks, modify `src/discord_bot.py` to add a simple HTTP server:
 
 ```python
-# Add this to discord_bot.py for health checks
+# Add this to src/discord_bot.py for health checks
 from aiohttp import web
 
 async def health_check(request):
@@ -487,4 +487,4 @@ fly apps destroy your-app-name
 
 ---
 
-**Ready to deploy?** Run `fly deploy` and your bot will be live in minutes! 🚀
+Run `fly deploy` to start the bot on Fly.io.

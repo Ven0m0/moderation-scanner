@@ -29,7 +29,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal, TypedDict
+from typing import Final, Iterator, Literal, TypedDict
 
 import aiofiles
 import httpx
