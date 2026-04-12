@@ -12,6 +12,7 @@ dockerfile = "Dockerfile"
 
 [env]
   PYTHONOPTIMIZE = "1"
+  NODE_OPTIONS = "--max-old-space-size=2048"
 
 [vm]
   memory = '512mb'
