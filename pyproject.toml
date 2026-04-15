@@ -37,7 +37,7 @@ account-scanner = "account_scanner:main"
 scanner-bot = "discord_bot:main"
 
 [build-system]
-requires = ["setuptools>=78.1.1"]  # Security: CVE-2024-6345, PYSEC-2025-49
+requires = ["setuptools>=82.0.1"]  # Security: CVE-2024-6345, PYSEC-2025-49
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
