@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.13
+ARG PYTHON_VERSION=3.14
 
 FROM python:${PYTHON_VERSION}-slim AS builder
 
@@ -12,10 +12,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LC_ALL=C.UTF-8 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    DEBCONF_NOWARNINGS=yes
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -qq && apt-get install -yqq --no-install-recommends \
     build-essential && \
     rm -rf /var/lib/apt/lists/*
 
@@ -24,8 +25,8 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 
 # Build wheels once so the runtime image can install without compilers
-RUN python -m pip install --upgrade pip && \
-    python -m pip wheel --no-cache-dir --wheel-dir /tmp/wheels . sherlock-project
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip wheel --no-cache-dir --wheel-dir /tmp/wheels . sherlock-project
 
 # Production stage
 FROM python:${PYTHON_VERSION}-slim
@@ -48,7 +49,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=builder /tmp/wheels /tmp/wheels
 
-RUN python -m pip install --no-cache-dir /tmp/wheels/* && \
+RUN python3 -m pip install --no-cache-dir /tmp/wheels/* && \
     rm -rf /tmp/wheels
 
 USER botuser
