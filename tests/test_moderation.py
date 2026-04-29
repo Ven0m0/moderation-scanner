@@ -5,7 +5,68 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 
-from cogs.moderation import ModerationCog
+from cogs.moderation import ModerationCog, chunk_message
+
+
+def test_chunk_message_empty_input():
+    """Test chunk_message with empty input lines."""
+    # Without header
+    assert chunk_message([]) == []
+    # With header
+    assert chunk_message([], header="Header") == ["Header"]
+
+
+def test_chunk_message_simple_fits():
+    """Test chunk_message when all lines fit in a single chunk."""
+    lines = ["line1", "line2", "line3"]
+    # "line1\nline2\nline3" length is 5+1+5+1+5 = 17
+    assert chunk_message(lines, max_length=20) == ["line1\nline2\nline3"]
+
+
+def test_chunk_message_splits_by_max_length():
+    """Test chunk_message splits lines across multiple chunks based on max_length."""
+    lines = ["line1", "line2", "line3"]
+    # max_length=10: "line1" (5) fits, "line1\nline2" (11) exceeds.
+    # Chunk 1: "line1", Chunk 2: "line2", Chunk 3: "line3"
+    assert chunk_message(lines, max_length=10) == ["line1", "line2", "line3"]
+
+
+def test_chunk_message_exact_max_length():
+    """Test chunk_message when combined length exactly matches max_length."""
+    lines = ["line1", "line2"]
+    # "line1\nline2" length is 11
+    assert chunk_message(lines, max_length=11) == ["line1\nline2"]
+    assert chunk_message(lines, max_length=10) == ["line1", "line2"]
+
+
+def test_chunk_message_with_header():
+    """Test chunk_message includes the header in the first chunk."""
+    lines = ["line1", "line2"]
+    header = "Header"
+    # "Header\nline1" (12), "Header\nline1\nline2" (18)
+    assert chunk_message(lines, header=header, max_length=12) == ["Header\nline1", "line2"]
+    assert chunk_message(lines, header=header, max_length=18) == ["Header\nline1\nline2"]
+
+
+def test_chunk_message_long_lines():
+    """Test chunk_message behavior when individual lines or header exceed max_length."""
+    # Line exceeds max_length - it should still be included as its own chunk
+    assert chunk_message(["verylongline"], max_length=5) == ["verylongline"]
+
+    # Header exceeds max_length - it should be its own chunk
+    assert chunk_message(["line1"], header="verylongheader", max_length=5) == [
+        "verylongheader",
+        "line1",
+    ]
+
+
+def test_chunk_message_strips_whitespace():
+    """Test chunk_message strips trailing whitespace from header and lines."""
+    lines = ["line1  ", "  line2  "]
+    header = "Header  "
+    # Expected: "Header\nline1\n  line2"
+    # Length: 6 + 1 + 5 + 1 + 7 = 20
+    assert chunk_message(lines, header=header, max_length=20) == ["Header\nline1\n  line2"]
 
 
 @pytest.mark.anyio
