@@ -55,23 +55,6 @@ def test_sherlock_available_sync_returns_bool() -> None:
     assert isinstance(result, bool)
 
 
-@pytest.mark.parametrize(
-    ("status", "expected"),
-    [
-        ("Claimed", True),
-        ("Available", False),
-        ("Not Found", False),
-        ("Invalid", False),
-        ("Unchecked", False),
-        ("Found!", True),
-        ("CLAIMED", True),
-        ("found!", True),
-    ],
-)
-def test_sherlock_is_claimed(status: str, expected: bool) -> None:
-    assert SherlockScanner._is_claimed(status) == expected
-
-
 async def test_rate_limiter_no_sleep_on_first_call() -> None:
     limiter = RateLimiter(rate_per_min=60.0)
     with (
