@@ -23,7 +23,6 @@ import logging
 import re
 import shutil
 import sys
-import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -80,9 +79,6 @@ class ScanResult(TypedDict):
     reddit: list[RedditFlaggedItem] | None
     errors: list[str]
 
-
-# --- Thread-safe lock for Sherlock availability cache (sync API) ---
-_sherlock_available_thread_lock = threading.Lock()
 
 # --- Constants ---
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
@@ -244,21 +240,6 @@ class SherlockScanner:
             path = await asyncio.to_thread(shutil.which, "sherlock")
             _sherlock_available = path is not None
             return _sherlock_available
-
-    @staticmethod
-    def available_sync() -> bool:
-        """Synchronous availability check, safe outside an event loop.
-
-        Uses a dedicated threading.Lock so it never touches asyncio primitives,
-        avoiding event-loop binding issues.
-        """
-        global _sherlock_available
-        with _sherlock_available_thread_lock:
-            if _sherlock_available is not None:
-                return _sherlock_available
-            result = shutil.which("sherlock") is not None
-            _sherlock_available = result
-            return result
 
     @staticmethod
     def _is_claimed(status: str) -> bool:

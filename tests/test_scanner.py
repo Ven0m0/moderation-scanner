@@ -48,11 +48,6 @@ async def test_sherlock_available_returns_bool() -> None:
     assert isinstance(result, bool)
 
 
-def test_sherlock_available_sync_returns_bool() -> None:
-    result = SherlockScanner.available_sync()
-    assert isinstance(result, bool)
-
-
 @pytest.mark.parametrize(
     ("status", "expected"),
     [
