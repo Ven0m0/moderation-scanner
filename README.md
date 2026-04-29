@@ -251,7 +251,7 @@ moderation-scanner/
 - `RateLimiter`: Token bucket rate limiter for API throttling
 - `SherlockScanner`: Wrapper for Sherlock OSINT tool
 - `RedditScanner`: Reddit API + Perspective API toxicity analysis
-- `ScannerAPI`: High-level library interface for programmatic use
+- `scan_user`: High-level library function for programmatic use
 
 **src/discord_bot.py** - Discord integration
 - `BotConfig`: Environment-based configuration management
