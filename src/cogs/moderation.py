@@ -16,9 +16,9 @@ from discord.ext import commands
 from account_scanner import (
     RateLimiter,
     ScanConfig,
-    ScannerAPI,
     ScanResult,
     SherlockScanner,
+    scan_user,
 )
 
 if TYPE_CHECKING:
@@ -263,7 +263,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
         try:
             results = await asyncio.wait_for(
-                ScannerAPI.scan_user(scan_config),
+                scan_user(scan_config),
                 timeout=SCAN_TIMEOUT,
             )
 
