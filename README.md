@@ -305,7 +305,7 @@ config = ScanConfig(
 )
 
 # Run scan (async)
-results = await scan_user("target_user", config)
+results = await scan_user(config)
 
 # Access results
 if results["reddit"]:
