@@ -339,7 +339,7 @@ async def scan(ctx, username: str):
         client_secret=os.getenv("REDDIT_CLIENT_SECRET")
     )
 
-    results = await scan_user(username, config)
+    results = await scan_user(config)
 
     # Display results in embed
     embed = discord.Embed(title=f"Scan: {username}")
