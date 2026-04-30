@@ -71,7 +71,7 @@ class RedditFlaggedItem(_RedditFlaggedBase, total=False):
 
 
 class ScanResult(TypedDict):
-    """Structured result returned by ScannerAPI.scan_user."""
+    """Structured result returned by scan_user."""
 
     username: str
     sherlock: list[SherlockResult] | None
@@ -602,74 +602,70 @@ class RedditScanner:
         return flagged
 
 
-class ScannerAPI:
-    """Library interface for programmatic access to scanner functionality."""
+async def scan_user(config: ScanConfig) -> ScanResult:
+    """Run an account scan and return a structured ScanResult.
 
-    @staticmethod
-    async def scan_user(config: ScanConfig) -> ScanResult:
-        """Run an account scan and return a structured ScanResult.
+    Results are cached by (username, mode) for CACHE_TTL seconds.
+    """
+    cache_key = f"{config.username}:{config.mode}"
+    if (cached := await get_cached_result(cache_key)) is not None:
+        return cached
 
-        Results are cached by (username, mode) for CACHE_TTL seconds.
-        """
-        cache_key = f"{config.username}:{config.mode}"
-        if (cached := await get_cached_result(cache_key)) is not None:
-            return cached
+    errors: list[str] = []
+    do_sherlock = config.mode in ("sherlock", "both")
+    do_reddit = config.mode in ("reddit", "both")
 
-        errors: list[str] = []
-        do_sherlock = config.mode in ("sherlock", "both")
-        do_reddit = config.mode in ("reddit", "both")
+    if do_sherlock and not await SherlockScanner.available():
+        errors.append("Sherlock not installed")
+        do_sherlock = False
 
-        if do_sherlock and not await SherlockScanner.available():
-            errors.append("Sherlock not installed")
-            do_sherlock = False
+    if do_reddit and not all((config.api_key, config.client_id, config.client_secret)):
+        if config.mode == "reddit":
+            errors.append("Reddit mode requires API credentials")
+        do_reddit = False
 
-        if do_reddit and not all((config.api_key, config.client_id, config.client_secret)):
-            if config.mode == "reddit":
-                errors.append("Reddit mode requires API credentials")
-            do_reddit = False
+    if not do_sherlock and not do_reddit:
+        errors.append("No valid scan modes configured")
+        return ScanResult(username=config.username, sherlock=None, reddit=None, errors=errors)
 
-        if not do_sherlock and not do_reddit:
-            errors.append("No valid scan modes configured")
-            return ScanResult(username=config.username, sherlock=None, reddit=None, errors=errors)
+    # Inner helpers capture `errors` by closure — each handles its own exceptions
+    # so TaskGroup never receives an unhandled exception.
+    async def _run_sherlock() -> list[SherlockResult]:
+        try:
+            return await SherlockScanner().scan(
+                config.username,
+                config.sherlock_timeout,
+                config.verbose,
+                config.output_sherlock.parent,
+            )
+        except Exception as exc:
+            errors.append(f"sherlock failed: {exc}")
+            return []
 
-        # Inner helpers capture `errors` by closure — each handles its own exceptions
-        # so TaskGroup never receives an unhandled exception.
-        async def _run_sherlock() -> list[SherlockResult]:
-            try:
-                return await SherlockScanner().scan(
-                    config.username,
-                    config.sherlock_timeout,
-                    config.verbose,
-                    config.output_sherlock.parent,
-                )
-            except Exception as exc:
-                errors.append(f"sherlock failed: {exc}")
-                return []
+    async def _run_reddit() -> list[RedditFlaggedItem] | None:
+        try:
+            return await RedditScanner(config).scan()
+        except Exception as exc:
+            errors.append(f"reddit failed: {exc}")
+            return None
 
-        async def _run_reddit() -> list[RedditFlaggedItem] | None:
-            try:
-                return await RedditScanner(config).scan()
-            except Exception as exc:
-                errors.append(f"reddit failed: {exc}")
-                return None
+    sherlock_task: asyncio.Task[list[SherlockResult]] | None = None
+    reddit_task: asyncio.Task[list[RedditFlaggedItem] | None] | None = None
 
-        sherlock_task: asyncio.Task[list[SherlockResult]] | None = None
-        reddit_task: asyncio.Task[list[RedditFlaggedItem] | None] | None = None
+    async with asyncio.TaskGroup() as tg:
+        if do_sherlock:
+            sherlock_task = tg.create_task(_run_sherlock())
+        if do_reddit:
+            reddit_task = tg.create_task(_run_reddit())
 
-        async with asyncio.TaskGroup() as tg:
-            if do_sherlock:
-                sherlock_task = tg.create_task(_run_sherlock())
-            if do_reddit:
-                reddit_task = tg.create_task(_run_reddit())
-
-        out = ScanResult(
-            username=config.username,
-            sherlock=sherlock_task.result() if sherlock_task is not None else None,
-            reddit=reddit_task.result() if reddit_task is not None else None,
-            errors=errors,
-        )
-        await set_cached_result(cache_key, out)
-        return out
+    out = ScanResult(
+        username=config.username,
+        sherlock=sherlock_task.result() if sherlock_task is not None else None,
+        reddit=reddit_task.result() if reddit_task is not None else None,
+        errors=errors,
+    )
+    await set_cached_result(cache_key, out)
+    return out
 
 
 async def main_async() -> None:
@@ -721,7 +717,7 @@ async def main_async() -> None:
     config = ScanConfig(**vars(args))
 
     try:
-        results = await ScannerAPI.scan_user(config)
+        results = await scan_user(config)
 
         if results["sherlock"]:
             json_content = orjson.dumps(results["sherlock"], option=orjson.OPT_INDENT_2)

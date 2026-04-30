@@ -251,7 +251,7 @@ moderation-scanner/
 - `RateLimiter`: Token bucket rate limiter for API throttling
 - `SherlockScanner`: Wrapper for Sherlock OSINT tool
 - `RedditScanner`: Reddit API + Perspective API toxicity analysis
-- `ScannerAPI`: High-level library interface for programmatic use
+- `scan_user`: High-level library interface for programmatic use
 
 **src/discord_bot.py** - Discord integration
 - `BotConfig`: Environment-based configuration management
@@ -287,7 +287,7 @@ moderation-scanner/
 ### Library Usage
 
 ```python
-from account_scanner import ScannerAPI, ScanConfig
+from account_scanner import scan_user, ScanConfig
 
 # Configure scan
 config = ScanConfig(
@@ -305,7 +305,7 @@ config = ScanConfig(
 )
 
 # Run scan (async)
-results = await ScannerAPI.scan_user("target_user", config)
+results = await scan_user(config)
 
 # Access results
 if results["reddit"]:
@@ -327,7 +327,7 @@ if results["errors"]:
 # In your Discord bot
 import os
 import discord
-from account_scanner import ScannerAPI, ScanConfig
+from account_scanner import scan_user, ScanConfig
 
 @bot.command()
 async def scan(ctx, username: str):
@@ -339,7 +339,7 @@ async def scan(ctx, username: str):
         client_secret=os.getenv("REDDIT_CLIENT_SECRET")
     )
 
-    results = await ScannerAPI.scan_user(username, config)
+    results = await scan_user(config)
 
     # Display results in embed
     embed = discord.Embed(title=f"Scan: {username}")

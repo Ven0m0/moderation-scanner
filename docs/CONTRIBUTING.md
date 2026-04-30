@@ -328,7 +328,7 @@ git push origin feature/your-feature-name
 - `RateLimiter`: API rate limiting
 - `SherlockScanner`: OSINT username enumeration
 - `RedditScanner`: Reddit + Perspective API toxicity analysis
-- `ScannerAPI`: High-level library interface
+- `scan_user`: High-level library interface
 
 **src/discord_bot.py**
 - `BotConfig`: Environment variable configuration
@@ -367,7 +367,7 @@ git push origin feature/your-feature-name
 2. Implement async methods with error handling
 3. Add rate limiting
 4. Add configuration to `ScanConfig`
-5. Integrate into `ScannerAPI.scan_user()`
+5. Integrate into `scan_user()`
 6. Add detailed tests
 
 ## Common Tasks
