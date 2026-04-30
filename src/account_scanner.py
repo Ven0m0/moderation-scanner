@@ -261,11 +261,6 @@ class SherlockScanner:
             return result
 
     @staticmethod
-    def _is_claimed(status: str) -> bool:
-        """Return True when *status* indicates a claimed account."""
-        return status.lower() in ("claimed", "found!")
-
-    @staticmethod
     def _extract_accounts(text: str) -> Iterator[tuple[str, str]]:
         """Yield (platform, url) pairs from Sherlock stdout text."""
         for raw_line in text.splitlines():
