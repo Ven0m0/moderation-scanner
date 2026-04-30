@@ -94,6 +94,7 @@ HTTP_OK: Final = 200
 MAX_CONCURRENT_API_CALLS: Final = 5
 CACHE_TTL: Final = 900  # 15 minutes
 CACHE_MAX_SIZE: Final = 100
+_USERNAME_SANITIZE_RE: Final = re.compile(r"[^\w\-]")
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -224,7 +225,7 @@ class ScanConfig:
 
     def __post_init__(self) -> None:
         # Sanitise username to prevent path traversal (alphanumeric, _ and - only).
-        self.username = re.sub(r"[^\w\-]", "_", self.username)
+        self.username = _USERNAME_SANITIZE_RE.sub("_", self.username)
         if not self.user_agent:
             self.user_agent = f"account-scanner/1.2.3 (by u/{self.username})"
 
