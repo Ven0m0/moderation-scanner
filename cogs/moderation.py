@@ -146,12 +146,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
         if results.get("reddit"):
             reddit = results["reddit"]
             assert reddit is not None
-            reddit_chunks: list[str] = []
-            clean_username = discord.utils.escape_markdown(
-                discord.utils.escape_mentions(username)
-            ).replace("<@", "<\\@")
-            current_lines = [f"**🤖 Reddit Toxicity Analysis for {clean_username}:**"]
-            current_len = len(current_lines[0]) + 1
+            items: list[str] = []
             for item in reddit:
                 preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
                 item_text = "\n".join(
@@ -169,7 +164,10 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 )
                 items.append(item_text)
 
-            header = f"**🤖 Reddit Toxicity Analysis for {username}:**"
+            clean_username = discord.utils.escape_markdown(
+                discord.utils.escape_mentions(username)
+            ).replace("<@", "<\\@")
+            header = f"**🤖 Reddit Toxicity Analysis for {clean_username}:**"
             reddit_chunks = chunk_message(items, header=header, max_length=1900)
             for chunk in reddit_chunks:
                 await _send(chunk)
@@ -231,7 +229,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
         clean_username = discord.utils.escape_markdown(
             discord.utils.escape_mentions(username)
         ).replace("<@", "<\\@")
-        await ctx.send(
+        status_message = await ctx.send(
             f"🔍 Scanning **{clean_username}** (mode: {mode})...",
             allowed_mentions=discord.AllowedMentions.none(),
         )
@@ -307,12 +305,13 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
             if ctx.interaction:
                 await ctx.interaction.edit_original_response(content=None, embed=embed)
-            else:
+            elif status_message:
                 try:
                     await status_message.edit(content=None, embed=embed)
                 except (discord.NotFound, discord.Forbidden):
-                    # If the status message was deleted or permissions changed, fall back to a new message
                     await ctx.send(embed=embed)
+            else:
+                await ctx.send(embed=embed)
 
             await self._send_detailed_results(ctx, username, results)
             log.info("Scan completed for user '%s'", username)
