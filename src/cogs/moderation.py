@@ -152,18 +152,16 @@ class ModerationCog(commands.Cog, name="Moderation"):
             items: list[str] = []
             for item in reddit:
                 preview = item["content"][:200] + ("..." if len(item["content"]) > 200 else "")
-                item_text = "\n".join(
-                    [
-                        "```",
-                        f"Time: {item['timestamp']}",
-                        f"Type: {item['type']} | Subreddit: r/{item['subreddit']}",
-                        f"Toxicity: {item.get('TOXICITY', 0):.2f} | "
-                        f"Insult: {item.get('INSULT', 0):.2f} | "
-                        f"Profanity: {item.get('PROFANITY', 0):.2f} | "
-                        f"Sexual: {item.get('SEXUALLY_EXPLICIT', 0):.2f}",
-                        f"Content: {preview}",
-                        "```",
-                    ]
+                item_text = (
+                    "```\n"
+                    f"Time: {item['timestamp']}\n"
+                    f"Type: {item['type']} | Subreddit: r/{item['subreddit']}\n"
+                    f"Toxicity: {item.get('TOXICITY', 0):.2f} | "
+                    f"Insult: {item.get('INSULT', 0):.2f} | "
+                    f"Profanity: {item.get('PROFANITY', 0):.2f} | "
+                    f"Sexual: {item.get('SEXUALLY_EXPLICIT', 0):.2f}\n"
+                    f"Content: {preview}\n"
+                    "```"
                 )
                 items.append(item_text)
 
