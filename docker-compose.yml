@@ -1,20 +1,23 @@
-version: '3.8'
-
 services:
   discord-bot:
-    build: .
+    image: moderation-scanner:latest
+    build:
+      context: .
+    init: true
     restart: unless-stopped
     environment:
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - PERSPECTIVE_API_KEY=${PERSPECTIVE_API_KEY}
-      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
-      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
-      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT}
-      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:?DISCORD_BOT_TOKEN is required}
+      PERSPECTIVE_API_KEY: ${PERSPECTIVE_API_KEY:-}
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET:-}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
+      LOG_CHANNEL_ID: ${LOG_CHANNEL_ID:-}
     volumes:
-      - ./scans:/app/scans
+      - type: bind
+        source: ./scans
+        target: /app/scans
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "10m"
+        max-size: 10m
         max-file: "3"

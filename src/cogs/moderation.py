@@ -16,9 +16,9 @@ from discord.ext import commands
 from account_scanner import (
     RateLimiter,
     ScanConfig,
-    ScannerAPI,
     ScanResult,
     SherlockScanner,
+    scan_user,
 )
 
 if TYPE_CHECKING:
@@ -146,7 +146,6 @@ class ModerationCog(commands.Cog, name="Moderation"):
         if results.get("reddit"):
             reddit = results["reddit"]
             assert reddit is not None
-            reddit_chunks: list[str] = []
             clean_username = discord.utils.escape_markdown(
                 discord.utils.escape_mentions(username)
             ).replace("<@", "<\\@")
@@ -228,10 +227,17 @@ class ModerationCog(commands.Cog, name="Moderation"):
         clean_username = discord.utils.escape_markdown(
             discord.utils.escape_mentions(username)
         ).replace("<@", "<\\@")
-        await ctx.send(
-            f"🔍 Scanning **{clean_username}** (mode: {mode})...",
-            allowed_mentions=discord.AllowedMentions.none(),
-        )
+        status_message: discord.Message | None = None
+        if ctx.interaction:
+            await ctx.send(
+                f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        else:
+            status_message = await ctx.send(
+                f"🔍 Scanning **{clean_username}** (mode: {mode})...",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
         log.info(
             "Scan requested by %s (ID: %s) for user '%s' (mode: %s)",
             ctx.author.name,
@@ -255,7 +261,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
         try:
             results = await asyncio.wait_for(
-                ScannerAPI.scan_user(scan_config),
+                scan_user(scan_config),
                 timeout=SCAN_TIMEOUT,
             )
 
@@ -305,6 +311,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if ctx.interaction:
                 await ctx.interaction.edit_original_response(content=None, embed=embed)
             else:
+                assert status_message is not None
                 try:
                     await status_message.edit(content=None, embed=embed)
                 except (discord.NotFound, discord.Forbidden):

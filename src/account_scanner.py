@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,9 +36,6 @@ import aiofiles
 import httpx
 import orjson
 import uvloop
-from asyncpraw import Reddit
-from asyncpraw.models import Redditor
-from asyncprawcore import AsyncPrawcoreException
 
 # --- PEP 695 type aliases ---
 type ScanMode = Literal["sherlock", "reddit", "both"]
@@ -73,7 +71,7 @@ class RedditFlaggedItem(_RedditFlaggedBase, total=False):
 
 
 class ScanResult(TypedDict):
-    """Structured result returned by ScannerAPI.scan_user."""
+    """Structured result returned by scan_user."""
 
     username: str
     sherlock: list[SherlockResult] | None
@@ -88,12 +86,15 @@ _sherlock_available_thread_lock = threading.Lock()
 PERSPECTIVE_URL: Final = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
 DEFAULT_TIMEOUT: Final = 10
 SHERLOCK_BUFFER: Final = 30
+SHERLOCK_PARTIAL_READ_TIMEOUT: Final = 2.0
+SHERLOCK_PARTIAL_READ_EXCEPTIONS: Final = (OSError, RuntimeError, ValueError, TimeoutError)
 ATTRIBUTES: Final = ("TOXICITY", "INSULT", "PROFANITY", "SEXUALLY_EXPLICIT")
 HTTP2_LIMITS: Final = httpx.Limits(max_keepalive_connections=5, max_connections=10)
 HTTP_OK: Final = 200
 MAX_CONCURRENT_API_CALLS: Final = 5
 CACHE_TTL: Final = 900  # 15 minutes
 CACHE_MAX_SIZE: Final = 100
+_USERNAME_SANITIZE_RE: Final = re.compile(r"[^\w\-]")
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -224,7 +225,7 @@ class ScanConfig:
 
     def __post_init__(self) -> None:
         # Sanitise username to prevent path traversal (alphanumeric, _ and - only).
-        self.username = re.sub(r"[^\w\-]", "_", self.username)
+        self.username = _USERNAME_SANITIZE_RE.sub("_", self.username)
         if not self.user_agent:
             self.user_agent = f"account-scanner/1.2.3 (by u/{self.username})"
 
@@ -259,11 +260,6 @@ class SherlockScanner:
             result = shutil.which("sherlock") is not None
             _sherlock_available = result
             return result
-
-    @staticmethod
-    def _is_claimed(status: str) -> bool:
-        """Return True when *status* indicates a claimed account."""
-        return status.lower() in ("claimed", "found!")
 
     @staticmethod
     def _extract_accounts(text: str) -> Iterator[tuple[str, str]]:
@@ -310,8 +306,6 @@ class SherlockScanner:
         log.info("🔎 Sherlock:  Scanning '%s'...", username)
         cmd = [
             "sherlock",
-            "--",
-            username,
             "--timeout",
             str(timeout_seconds),
             "--no-color",
@@ -319,22 +313,77 @@ class SherlockScanner:
         ]
         if output_dir:
             cmd.extend(["--output", str(output_dir / f"{username}.txt")])
+        cmd.extend(["--", username])
+
+        async def _read_stream(stream: asyncio.StreamReader | None) -> bytes:
+            return (await stream.read()) if stream is not None else b""
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            # Start background readers immediately.  They are NOT cancelled on timeout,
+            # so every byte Sherlock emits is preserved.  After proc.kill(), the OS
+            # closes the write end of both pipes → EOF → the readers complete naturally
+            # with all accumulated data.
+            stdout_task: asyncio.Task[bytes] = asyncio.create_task(_read_stream(proc.stdout))
+            stderr_task: asyncio.Task[bytes] = asyncio.create_task(_read_stream(proc.stderr))
+
+            timed_out = False
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(),
-                    timeout=timeout_seconds + SHERLOCK_BUFFER,
-                )
+                await asyncio.wait_for(proc.wait(), timeout=timeout_seconds + SHERLOCK_BUFFER)
+                stdout = await stdout_task
+                stderr = await stderr_task
             except TimeoutError:
-                proc.kill()
+                timed_out = True
+                if proc.returncode is None:
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        log.debug(
+                            "🔎 Sherlock: process exited before kill during timeout recovery",
+                            exc_info=True,
+                        )
                 await proc.wait()
-                log.warning("🔎 Sherlock: timed out after %ds", timeout_seconds)
-                stdout, stderr = b"", b""
+                # Readers get EOF from the killed process and complete with partial data.
+                try:
+                    stdout = await asyncio.wait_for(
+                        stdout_task, timeout=SHERLOCK_PARTIAL_READ_TIMEOUT
+                    )
+                except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
+                    stdout_task.cancel()
+                    try:
+                        await stdout_task
+                    except asyncio.CancelledError:
+                        pass
+                    stdout = b""
+                    log.debug(
+                        "🔎 Sherlock: failed to recover partial stdout: %s",
+                        type(exc).__name__,
+                        exc_info=True,
+                    )
+                try:
+                    stderr = await asyncio.wait_for(
+                        stderr_task, timeout=SHERLOCK_PARTIAL_READ_TIMEOUT
+                    )
+                except SHERLOCK_PARTIAL_READ_EXCEPTIONS as exc:
+                    stderr_task.cancel()
+                    try:
+                        await stderr_task
+                    except asyncio.CancelledError:
+                        pass
+                    stderr = b""
+                    log.debug(
+                        "🔎 Sherlock: failed to recover partial stderr: %s",
+                        type(exc).__name__,
+                        exc_info=True,
+                    )
+                log.warning(
+                    "🔎 Sherlock: timed out after %ds; using partial results",
+                    timeout_seconds,
+                )
 
             if stderr_text := stderr.decode(errors="ignore").strip():
                 log.warning("🔎 Sherlock stderr:\n%s", stderr_text)
@@ -343,7 +392,7 @@ class SherlockScanner:
 
             results = self._parse_stdout(stdout.decode(errors="ignore")) if stdout else []
 
-            if proc.returncode and proc.returncode != 0:
+            if not timed_out and proc.returncode is not None and proc.returncode != 0:
                 log.error("🔎 Sherlock: process exited with code %d", proc.returncode)
             log.info(
                 "🔎 Sherlock: %s",
@@ -404,48 +453,100 @@ class RedditScanner:
             log.warning("Perspective API parse error; returning empty scores: %s", exc)
         return {}
 
-    async def _fetch_comments(self, user: Redditor) -> list[tuple[str, str, str, float]]:
+    async def _get_access_token(self, client: httpx.AsyncClient) -> str:
+        cfg = self.config
+        if not cfg.client_id or not cfg.client_secret:
+            raise ValueError("Reddit API credentials are required")
+        response = await client.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(cfg.client_id, cfg.client_secret),
+            data={"grant_type": "client_credentials"},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        token = data.get("access_token")
+        if not (isinstance(token, str) and token):
+            raise ValueError("Reddit access token missing from API response")
+        return token
+
+    async def _fetch_listing(
+        self,
+        client: httpx.AsyncClient,
+        path: str,
+        limit: int,
+    ) -> list[tuple[str, str, str, float]]:
+        response = await client.get(
+            f"https://oauth.reddit.com/user/{self.config.username}/{path}",
+            params={"sort": "new", "limit": limit, "raw_json": 1},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        children = payload.get("data", {}).get("children", [])
+        if not isinstance(children, list):
+            raise ValueError("Reddit listing response missing children")
         items: list[tuple[str, str, str, float]] = []
-        async for c in user.comments.new(limit=self.config.comments):
-            items.append(("comment", c.subreddit.display_name, c.body, c.created_utc))
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            data = child.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            subreddit = data.get("subreddit")
+            created_utc = data.get("created_utc")
+            if not isinstance(subreddit, str) or not isinstance(created_utc, (int, float)):
+                continue
+            if path == "comments":
+                body = data.get("body")
+                if isinstance(body, str):
+                    items.append(("comment", subreddit, body, float(created_utc)))
+            else:
+                title = data.get("title")
+                selftext = data.get("selftext")
+                if isinstance(title, str) and isinstance(selftext, str):
+                    if not title and not selftext:
+                        continue
+                    has_title = bool(title)
+                    has_selftext = bool(selftext)
+                    content = (
+                        f"{title}\n{selftext}" if has_title and has_selftext else title or selftext
+                    )
+                    items.append(("post", subreddit, content, float(created_utc)))
         return items
 
-    async def _fetch_posts(self, user: Redditor) -> list[tuple[str, str, str, float]]:
-        items: list[tuple[str, str, str, float]] = []
-        async for s in user.submissions.new(limit=self.config.posts):
-            items.append(
-                ("post", s.subreddit.display_name, f"{s.title}\n{s.selftext}", s.created_utc)
-            )
-        return items
+    async def _fetch_comments(self, client: httpx.AsyncClient) -> list[tuple[str, str, str, float]]:
+        return await self._fetch_listing(client, "comments", self.config.comments)
+
+    async def _fetch_posts(self, client: httpx.AsyncClient) -> list[tuple[str, str, str, float]]:
+        return await self._fetch_listing(client, "submitted", self.config.posts)
 
     async def _fetch_items(self) -> list[tuple[str, str, str, float]] | None:
         """Fetch Reddit comments and posts concurrently via TaskGroup."""
         cfg = self.config
         log.info("🤖 Reddit: Fetching content for u/%s...", cfg.username)
-        reddit: Reddit | None = None
         items: list[tuple[str, str, str, float]] | None = None
+        if not cfg.user_agent:
+            log.error("Reddit fetch error: missing Reddit user agent")
+            return None
         try:
-            reddit = Reddit(
-                client_id=cfg.client_id,
-                client_secret=cfg.client_secret,
-                user_agent=cfg.user_agent,
-                requestor_kwargs={"timeout": DEFAULT_TIMEOUT},
-            )
-            user = await reddit.redditor(cfg.username)
-            async with asyncio.TaskGroup() as tg:
-                comments_t = tg.create_task(self._fetch_comments(user))
-                posts_t = tg.create_task(self._fetch_posts(user))
-            merged = comments_t.result() + posts_t.result()
-            items = merged if merged else None
-        except* AsyncPrawcoreException as eg:
-            for exc in eg.exceptions:
-                log.error("Reddit API Error: %s", exc)
-        except* (OSError, ValueError, RuntimeError) as eg:
-            for exc in eg.exceptions:
-                log.error("Reddit fetch error: %s", exc)
-        finally:
-            if reddit is not None:
-                await reddit.close()
+            async with httpx.AsyncClient(headers={"User-Agent": cfg.user_agent}) as client:
+                token = await self._get_access_token(client)
+                client.headers["Authorization"] = f"Bearer {token}"
+                async with asyncio.TaskGroup() as tg:
+                    comments_t = tg.create_task(self._fetch_comments(client))
+                    posts_t = tg.create_task(self._fetch_posts(client))
+                merged = comments_t.result() + posts_t.result()
+                items = merged if merged else None
+        except* httpx.HTTPStatusError as status_group:
+            for status_error in status_group.exceptions:
+                log.error("Reddit API Error: %s", status_error)
+        except* httpx.HTTPError as http_group:
+            for http_error in http_group.exceptions:
+                log.error("Reddit HTTP error: %s", http_error)
+        except* (OSError, ValueError, RuntimeError) as fetch_group:
+            for fetch_error in fetch_group.exceptions:
+                log.error("Reddit fetch error: %s", fetch_error)
         return items
 
     async def scan(self) -> list[RedditFlaggedItem] | None:
@@ -502,74 +603,70 @@ class RedditScanner:
         return flagged
 
 
-class ScannerAPI:
-    """Library interface for programmatic access to scanner functionality."""
+async def scan_user(config: ScanConfig) -> ScanResult:
+    """Run an account scan and return a structured ScanResult.
 
-    @staticmethod
-    async def scan_user(config: ScanConfig) -> ScanResult:
-        """Run an account scan and return a structured ScanResult.
+    Results are cached by (username, mode) for CACHE_TTL seconds.
+    """
+    cache_key = f"{config.username}:{config.mode}"
+    if (cached := await get_cached_result(cache_key)) is not None:
+        return cached
 
-        Results are cached by (username, mode) for CACHE_TTL seconds.
-        """
-        cache_key = f"{config.username}:{config.mode}"
-        if (cached := await get_cached_result(cache_key)) is not None:
-            return cached
+    errors: list[str] = []
+    do_sherlock = config.mode in ("sherlock", "both")
+    do_reddit = config.mode in ("reddit", "both")
 
-        errors: list[str] = []
-        do_sherlock = config.mode in ("sherlock", "both")
-        do_reddit = config.mode in ("reddit", "both")
+    if do_sherlock and not await SherlockScanner.available():
+        errors.append("Sherlock not installed")
+        do_sherlock = False
 
-        if do_sherlock and not await SherlockScanner.available():
-            errors.append("Sherlock not installed")
-            do_sherlock = False
+    if do_reddit and not all((config.api_key, config.client_id, config.client_secret)):
+        if config.mode == "reddit":
+            errors.append("Reddit mode requires API credentials")
+        do_reddit = False
 
-        if do_reddit and not all((config.api_key, config.client_id, config.client_secret)):
-            if config.mode == "reddit":
-                errors.append("Reddit mode requires API credentials")
-            do_reddit = False
+    if not do_sherlock and not do_reddit:
+        errors.append("No valid scan modes configured")
+        return ScanResult(username=config.username, sherlock=None, reddit=None, errors=errors)
 
-        if not do_sherlock and not do_reddit:
-            errors.append("No valid scan modes configured")
-            return ScanResult(username=config.username, sherlock=None, reddit=None, errors=errors)
+    # Inner helpers capture `errors` by closure — each handles its own exceptions
+    # so TaskGroup never receives an unhandled exception.
+    async def _run_sherlock() -> list[SherlockResult]:
+        try:
+            return await SherlockScanner().scan(
+                config.username,
+                config.sherlock_timeout,
+                config.verbose,
+                config.output_sherlock.parent,
+            )
+        except Exception as exc:
+            errors.append(f"sherlock failed: {exc}")
+            return []
 
-        # Inner helpers capture `errors` by closure — each handles its own exceptions
-        # so TaskGroup never receives an unhandled exception.
-        async def _run_sherlock() -> list[SherlockResult]:
-            try:
-                return await SherlockScanner().scan(
-                    config.username,
-                    config.sherlock_timeout,
-                    config.verbose,
-                    config.output_sherlock.parent,
-                )
-            except Exception as exc:
-                errors.append(f"sherlock failed: {exc}")
-                return []
+    async def _run_reddit() -> list[RedditFlaggedItem] | None:
+        try:
+            return await RedditScanner(config).scan()
+        except Exception as exc:
+            errors.append(f"reddit failed: {exc}")
+            return None
 
-        async def _run_reddit() -> list[RedditFlaggedItem] | None:
-            try:
-                return await RedditScanner(config).scan()
-            except Exception as exc:
-                errors.append(f"reddit failed: {exc}")
-                return None
+    sherlock_task: asyncio.Task[list[SherlockResult]] | None = None
+    reddit_task: asyncio.Task[list[RedditFlaggedItem] | None] | None = None
 
-        sherlock_task: asyncio.Task[list[SherlockResult]] | None = None
-        reddit_task: asyncio.Task[list[RedditFlaggedItem] | None] | None = None
+    async with asyncio.TaskGroup() as tg:
+        if do_sherlock:
+            sherlock_task = tg.create_task(_run_sherlock())
+        if do_reddit:
+            reddit_task = tg.create_task(_run_reddit())
 
-        async with asyncio.TaskGroup() as tg:
-            if do_sherlock:
-                sherlock_task = tg.create_task(_run_sherlock())
-            if do_reddit:
-                reddit_task = tg.create_task(_run_reddit())
-
-        out = ScanResult(
-            username=config.username,
-            sherlock=sherlock_task.result() if sherlock_task is not None else None,
-            reddit=reddit_task.result() if reddit_task is not None else None,
-            errors=errors,
-        )
-        await set_cached_result(cache_key, out)
-        return out
+    out = ScanResult(
+        username=config.username,
+        sherlock=sherlock_task.result() if sherlock_task is not None else None,
+        reddit=reddit_task.result() if reddit_task is not None else None,
+        errors=errors,
+    )
+    await set_cached_result(cache_key, out)
+    return out
 
 
 async def main_async() -> None:
@@ -621,7 +718,7 @@ async def main_async() -> None:
     config = ScanConfig(**vars(args))
 
     try:
-        results = await ScannerAPI.scan_user(config)
+        results = await scan_user(config)
 
         if results["sherlock"]:
             json_content = orjson.dumps(results["sherlock"], option=orjson.OPT_INDENT_2)

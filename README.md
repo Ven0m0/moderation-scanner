@@ -1,24 +1,26 @@
 # Account Scanner
 
+[![Maintainability](https://qlty.sh/gh/Ven0m0/projects/moderation-scanner/maintainability.svg)](https://qlty.sh/gh/Ven0m0/projects/moderation-scanner)
+
 Multi-source account scanner combining Reddit toxicity analysis via Perspective API with Sherlock OSINT username enumeration.
 
 ## Features
 
 - **Reddit Analysis**: Scan user comments/posts for toxic content using Google Perspective API
 - **OSINT Discovery**: Enumerate username across 300+ platforms via Sherlock
-- **Discord Bot**: Ready-to-deploy moderation bot with slash commands
+- **Discord Bot**: Discord moderation bot with slash commands
 - **Async Performance**: HTTP/2 support with configurable rate limiting
 - **Flexible Output**: CSV for Reddit results, JSON for Sherlock findings
-- **Production Ready**: Docker support with Fly.io deployment configuration
+- **Deployment**: Docker support with Fly.io deployment configuration
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.13+
 - [Sherlock](https://github.com/sherlock-project/sherlock) (optional, for OSINT)
 
 ## Installation
 
-See [docs/INSTALL.md](docs/INSTALL.md) for comprehensive installation guide.
+See [docs/INSTALL.md](docs/INSTALL.md) for detailed installation guide.
 
 **Quick Install:**
 
@@ -34,7 +36,7 @@ yay -S account-scanner
 ```
 
 **Dependencies:**
-- Python 3.11+
+- Python 3.13+
 - [Sherlock](https://github.com/sherlock-project/sherlock) (optional, for OSINT)
 
 **Full setup:**
@@ -88,7 +90,7 @@ export PERSPECTIVE_API_KEY="your_api_key"
 ### Direct Python
 
 ```bash
-python3 account_scanner.py target_username \
+python3 src/account_scanner.py target_username \
   --perspective-api-key "$PERSPECTIVE_API_KEY" \
   --client-id "$REDDIT_CLIENT_ID" \
   --client-secret "$REDDIT_CLIENT_SECRET" \
@@ -146,7 +148,7 @@ timestamp,type,subreddit,content,TOXICITY,INSULT,PROFANITY,SEXUALLY_EXPLICIT
 
 ## Discord Bot
 
-The project includes a production-ready Discord bot for server moderation with native slash command support.
+The project includes a Discord bot for server moderation with native slash command support.
 
 ### Features
 
@@ -167,15 +169,15 @@ The project includes a production-ready Discord bot for server moderation with n
 2. Select your bot application
 3. Navigate to "Bot" section
 4. Enable the following **Privileged Gateway Intents**:
-   - ✅ Message Content Intent (for legacy prefix commands)
+   - Message Content Intent (for legacy prefix commands)
 5. Navigate to "OAuth2" → "URL Generator"
 6. Select scopes:
-   - ✅ `bot`
-   - ✅ `applications.commands`
+   - `bot`
+   - `applications.commands`
 7. Select bot permissions:
-   - ✅ Send Messages
-   - ✅ Embed Links
-   - ✅ Read Message History
+   - Send Messages
+   - Embed Links
+   - Read Message History
 8. Copy the generated URL and use it to invite the bot
 
 **Note:** Slash commands work in DMs without any server permissions!
@@ -190,18 +192,18 @@ export REDDIT_CLIENT_SECRET="your_secret"
 export PERSPECTIVE_API_KEY="your_key"
 
 # Run the bot
-python discord_bot.py
+python src/discord_bot.py
 ```
 
 ### Cloud Deployment
 
-**Quick Deploy to Fly.io (FREE):**
+**Deploy to Fly.io:**
 
-See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
+See [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) for deployment steps.
 
-**Full Documentation:**
-- [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) - Complete Fly.io deployment guide
-- [docs/deployment/PRODUCTION.md](docs/deployment/PRODUCTION.md) - Production best practices and optimization
+**Documentation:**
+- [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md) - Fly.io deployment guide
+- [docs/deployment/PRODUCTION.md](docs/deployment/PRODUCTION.md) - Production operational guidance
 - [.env.example](.env.example) - Environment variable template
 
 **Other Hosting Options:**
@@ -216,9 +218,11 @@ See [QUICKSTART.md](QUICKSTART.md) for 5-minute deployment guide.
 
 ```
 moderation-scanner/
-├── account_scanner.py         # Core scanner library (Reddit + Sherlock)
-├── discord_bot.py             # Discord bot integration
-├── test_scanner.py            # Test suite
+├── src/
+│   ├── account_scanner.py     # Core scanner library (Reddit + Sherlock)
+│   ├── discord_bot.py         # Discord bot integration
+│   └── cogs/                  # Bot command cogs
+├── tests/                     # Test suite
 ├── scripts/
 │   ├── scan.sh                # Wrapper script for CLI usage
 │   ├── build.sh               # Build helper script
@@ -228,30 +232,28 @@ moderation-scanner/
 │   ├── INSTALL.md             # Installation guide
 │   ├── CONTRIBUTING.md        # Development guide
 │   ├── PACKAGING.md           # Package building guide
-│   ├── changelog.md           # Version history
 │   └── deployment/
 │       ├── DEPLOYMENT.md      # Fly.io deployment
 │       ├── DISCORD_BOT_DEPLOYMENT.md  # Bot deployment options
-│       └── PRODUCTION.md      # Production best practices
+│       └── PRODUCTION.md      # Production operations
 ├── config/
 │   ├── PKGBUILD               # Arch Linux package build
 │   └── discord-scanner-bot.service  # Systemd service file
 ├── fly.toml                   # Fly.io deployment config
 ├── Dockerfile                 # Container image
-├── QUICKSTART.md              # 5-minute quick start
 └── README.md                  # This file
 ```
 
 ### Component Overview
 
-**account_scanner.py** - Core scanning engine
+**src/account_scanner.py** - Core scanning engine
 - `ScanConfig`: Configuration dataclass for scan parameters
 - `RateLimiter`: Token bucket rate limiter for API throttling
 - `SherlockScanner`: Wrapper for Sherlock OSINT tool
 - `RedditScanner`: Reddit API + Perspective API toxicity analysis
-- `ScannerAPI`: High-level library interface for programmatic use
+- `scan_user`: High-level library interface for programmatic use
 
-**discord_bot.py** - Discord integration
+**src/discord_bot.py** - Discord integration
 - `BotConfig`: Environment-based configuration management
 - Commands: `!scan`, `!health`, `!help`, `!shutdown`
 - Permission-based access control and rate limiting
@@ -272,7 +274,7 @@ moderation-scanner/
 
 ### Technology Stack
 
-- **Python 3.11+** with type hints and dataclasses
+- **Python 3.13+** with type hints and dataclasses
 - **AsyncIO**: uvloop for high-performance event loop
 - **HTTP**: httpx with HTTP/2 support
 - **APIs**: AsyncPRAW (Reddit), Google Perspective API
@@ -285,7 +287,7 @@ moderation-scanner/
 ### Library Usage
 
 ```python
-from account_scanner import ScannerAPI, ScanConfig
+from account_scanner import scan_user, ScanConfig
 
 # Configure scan
 config = ScanConfig(
@@ -303,7 +305,7 @@ config = ScanConfig(
 )
 
 # Run scan (async)
-results = await ScannerAPI.scan_user("target_user", config)
+results = await scan_user(config)
 
 # Access results
 if results["reddit"]:
@@ -325,7 +327,7 @@ if results["errors"]:
 # In your Discord bot
 import os
 import discord
-from account_scanner import ScannerAPI, ScanConfig
+from account_scanner import scan_user, ScanConfig
 
 @bot.command()
 async def scan(ctx, username: str):
@@ -337,7 +339,7 @@ async def scan(ctx, username: str):
         client_secret=os.getenv("REDDIT_CLIENT_SECRET")
     )
 
-    results = await ScannerAPI.scan_user(username, config)
+    results = await scan_user(config)
 
     # Display results in embed
     embed = discord.Embed(title=f"Scan: {username}")
@@ -378,13 +380,13 @@ ruff format .
 ruff check .
 
 # Type checking
-mypy account_scanner.py discord_bot.py
+PYTHONPATH=src mypy src/account_scanner.py
 
 # Run tests
-pytest
+PYTHONPATH=src pytest
 
 # Run tests with coverage
-pytest --cov=account_scanner --cov-report=html
+PYTHONPATH=src pytest --cov=src --cov-report=html
 ```
 
 ### Contributing

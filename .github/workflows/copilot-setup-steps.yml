@@ -1,0 +1,39 @@
+name: "Copilot Setup Steps"
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Tesseract OCR system dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -yqq --no-install-recommends build-essential pkg-config ripgrep fd-find shellcheck shfmt
+      - name: Install uv and Python 3.13
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - name: Install project dependencies
+        run: uv sync --all-extras --all-packages --all-groups --frozen >/dev/null
+      - name: Install llm tooling
+        run: |
+          uv tool install basedpyright >/dev/null
+          uv tool install ruff >/dev/null
+          uv tool install ty >/dev/null
+          npm i -g vscode-langservers-extracted bash-language-server yaml-language-server \
+            @ast-grep/cli @biomejs/biome >/dev/null

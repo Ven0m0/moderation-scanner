@@ -115,10 +115,9 @@ makepkg -si
 ## Dependency Management
 
 ### Core Dependencies
-- `python >= 3.11`
+- `python >= 3.13`
 - `python-httpx[http2]`
 - `python-orjson`
-- `python-asyncpraw`
 - `python-aiofiles`
 
 ### Optional Dependencies

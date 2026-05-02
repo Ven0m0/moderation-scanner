@@ -11,14 +11,8 @@ dockerfile = "Dockerfile"
   strategy = "immediate"
 
 [env]
-  PYTHONUNBUFFERED = "1"
-  PYTHONDONTWRITEBYTECODE = "1"
-  PYTHONHASHSEED = "0"
-  PYTHONIOENCODING = "utf-8"
   PYTHONOPTIMIZE = "1"
-  LC_ALL = "C.UTF-8"
-  NODE_ENV = "production"
-  NODE_OPTIONS = "--max-old-space-size=1536"
+  NODE_OPTIONS = "--max-old-space-size=2048"
 
 [vm]
   memory = '512mb'

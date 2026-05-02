@@ -1,5 +1,6 @@
-# Git files
+# VCS and CI metadata
 .git
+.github/
 .gitignore
 .gitattributes
 
@@ -10,21 +11,19 @@ __pycache__/
 *.so
 .Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.hypothesis/
+.coverage
+htmlcov/
 
 # Virtual environments
 venv/
@@ -34,7 +33,7 @@ env.bak/
 venv.bak/
 .venv/
 
-# IDE and editor files
+# Local tooling and editor files
 .vscode/
 .idea/
 *.swp
@@ -42,45 +41,29 @@ venv.bak/
 *~
 .DS_Store
 
-# Testing and coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-*.cover
-
-# Documentation
-*.md
+# Documentation and development-only files
 docs/
+tests/
+test_*.py
+AGENTS.md
 LICENSE
+Makefile
+config/
+scripts/
+fly.toml
+renovate.json
+.editorconfig
+uv.lock
 
-# Scan output files (these should be generated fresh)
+# Runtime output
 scans/
-*.csv
-*.json
 reddit_flagged.csv
 sherlock_results.json
+*.csv
+*.log
+logs/
 
-# Environment files (secrets should never be in image)
+# Environment files and secrets
 .env
 .env.*
 credentials
-
-# CI/CD
-.github/
-.gitlab-ci.yml
-
-# Packaging files (already in image)
-.SRCINFO
-PKGBUILD
-Makefile
-
-# Fly.io specific
-fly.toml
-.dockerignore
-Dockerfile
-
-# Logs
-*.log
-logs/

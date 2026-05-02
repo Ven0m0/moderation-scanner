@@ -1,15 +1,15 @@
 # Documentation Index
 
-Welcome to the Account Scanner documentation! This directory contains comprehensive guides for installation, development, deployment, and maintenance.
+Welcome to the Account Scanner documentation! This directory contains detailed guides for installation, development, deployment, and maintenance.
 
 ## Quick Links
 
 - [Main README](../README.md) - Project overview and features
-- [Quick Start Guide](../QUICKSTART.md) - Deploy to Fly.io in 5 minutes
+- [Deployment Guide](deployment/DEPLOYMENT.md) - Deploy the Discord bot on Fly.io
 
 ## Installation & Setup
 
-- [INSTALL.md](INSTALL.md) - Comprehensive installation guide
+- [INSTALL.md](INSTALL.md) - Detailed installation guide
   - Pip installation (development & production)
   - Arch Linux packaging
   - AUR installation
@@ -41,7 +41,7 @@ Welcome to the Account Scanner documentation! This directory contains comprehens
 All deployment-related documentation is in the [deployment/](deployment/) directory:
 
 - [DEPLOYMENT.md](deployment/DEPLOYMENT.md) - Fly.io deployment guide
-  - Complete Fly.io setup
+  - Fly.io setup
   - Configuration and secrets management
   - Monitoring and logging
   - Troubleshooting
@@ -51,15 +51,11 @@ All deployment-related documentation is in the [deployment/](deployment/) direct
   - Configuration and security
   - Monitoring and maintenance
 
-- [PRODUCTION.md](deployment/PRODUCTION.md) - Production best practices
+- [PRODUCTION.md](deployment/PRODUCTION.md) - Production operations
   - Pre-deployment checklist
   - Security best practices
   - Performance optimization
   - Monitoring and alerts
-
-## Changelog
-
-- [changelog.md](changelog.md) - Version history and changes
 
 ## Additional Resources
 

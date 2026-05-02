@@ -38,18 +38,18 @@ lint-fix: ## Lint and auto-fix issues with Ruff
 
 type: ## Type check with mypy
 	@echo "$(GREEN)Running type checks with mypy...$(RESET)"
-	mypy account_scanner.py --show-error-codes --pretty
+	PYTHONPATH=src mypy src/account_scanner.py --show-error-codes --pretty
 
 check: format-check lint type ## Run all code quality checks
 	@echo "$(GREEN)✓ All checks passed!$(RESET)"
 
 test: ## Run tests with pytest
 	@echo "$(GREEN)Running tests...$(RESET)"
-	pytest -v --tb=short || true
+	PYTHONPATH=src pytest -v --tb=short || true
 
 test-cov: ## Run tests with coverage report
 	@echo "$(GREEN)Running tests with coverage...$(RESET)"
-	pytest -v --cov=. --cov-report=html --cov-report=term-missing
+	PYTHONPATH=src pytest -v --cov=src --cov-report=html --cov-report=term-missing
 
 security: ## Run security checks (bandit)
 	@echo "$(GREEN)Running security analysis with Bandit...$(RESET)"

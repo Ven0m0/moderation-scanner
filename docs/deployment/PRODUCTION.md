@@ -1,6 +1,6 @@
 # Production Readiness Guide
 
-This guide covers production best practices, optimizations, and security considerations for running the Account Scanner Bot.
+This guide covers production operations, optimizations, and security considerations for running the Account Scanner Bot.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide covers production best practices, optimizations, and security conside
 
 ## Pre-Deployment Checklist
 
-### ✅ Required Configuration
+### Required Configuration
 
 - [ ] Discord bot token set in secrets
 - [ ] Reddit API credentials configured
@@ -23,7 +23,7 @@ This guide covers production best practices, optimizations, and security conside
 - [ ] Bot permissions configured in Discord Developer Portal
 - [ ] Tested all commands in development environment
 
-### ✅ Discord Bot Permissions
+### Discord Bot Permissions
 
 Your bot needs these Discord permissions:
 - **Read Messages/View Channels**
@@ -37,7 +37,7 @@ Your bot needs these Discord permissions:
 https://discord.com/api/oauth2/authorize?client_id=YOUR_BOT_ID&permissions=1099511627776&scope=bot
 ```
 
-### ✅ Optional but Recommended
+### Optional but Recommended
 
 - [ ] Set up logging channel (`LOG_CHANNEL_ID`)
 - [ ] Configure persistent volume for scan data
@@ -50,15 +50,15 @@ https://discord.com/api/oauth2/authorize?client_id=YOUR_BOT_ID&permissions=10995
 ### 1. Secrets Management
 
 **DO:**
-- ✅ Use Fly.io secrets (`fly secrets set`)
-- ✅ Rotate API keys regularly
-- ✅ Use environment variables, never hardcode
-- ✅ Keep `.env` files in `.gitignore`
+- Use Fly.io secrets (`fly secrets set`)
+- Rotate API keys regularly
+- Use environment variables, never hardcode
+- Keep `.env` files in `.gitignore`
 
 **DON'T:**
-- ❌ Commit secrets to git
-- ❌ Share tokens publicly
-- ❌ Use the same token across environments
+- Commit secrets to git
+- Share tokens publicly
+- Use the same token across environments
 
 ### 2. Bot Token Security
 
@@ -89,7 +89,7 @@ fly secrets set ADMIN_USER_IDS="123456789012345678"
 
 ### 5. Rate Limiting
 
-Current settings in `cogs/moderation.py`:
+Current settings in `src/cogs/moderation.py`:
 ```python
 @commands.cooldown(1, 30, commands.BucketType.user)  # 1 scan per 30s per user
 ```
@@ -108,7 +108,7 @@ Current settings in `cogs/moderation.py`:
 - Runtime memory: ~100-150MB (idle)
 - Peak memory: ~200MB (during scans)
 
-**Fly.io free tier (256MB) is sufficient** for most use cases.
+Fly.io's 256MB free tier is often enough for a single bot deployment.
 
 **Monitor memory usage:**
 ```bash
@@ -120,7 +120,7 @@ free -h
 
 ### 2. Scan Timeout Configuration
 
-In `cogs/moderation.py`:
+In `src/cogs/moderation.py`:
 ```python
 SCAN_TIMEOUT: Final = 300  # 5 minutes
 ```
@@ -194,7 +194,7 @@ Set up a logging channel to receive bot events:
 fly secrets set LOG_CHANNEL_ID="123456789012345678"
 ```
 
-**Note:** You'll need to implement logging in `discord_bot.py` to send events to this channel.
+**Note:** You'll need to implement logging in `src/discord_bot.py` to send events to this channel.
 
 ### 3. Uptime Monitoring
 
@@ -280,7 +280,7 @@ fly ssh console
 - Bot should handle rate limits automatically
 
 **2. Reddit API:**
-- 60 requests/minute (default in account_scanner.py:116)
+- 60 requests/minute (default in `src/account_scanner.py`)
 - OAuth: 600 requests/10 minutes
 
 **3. Perspective API:**
@@ -291,7 +291,7 @@ fly ssh console
 
 The scanner has built-in rate limiting:
 ```python
-# In account_scanner.py
+# In src/account_scanner.py
 --rate-per-min 60  # Configurable
 ```
 
@@ -326,7 +326,7 @@ fly secrets set REDDIT_CLIENT_ID="..." \
 - If missing, rebuild: `fly deploy`
 
 **3. "Scan timed out"**
-- Increase `SCAN_TIMEOUT` in `cogs/moderation.py`
+- Increase `SCAN_TIMEOUT` in `src/cogs/moderation.py`
 - Use specific scan modes (`!scan username reddit`)
 
 **4. Out of Memory**

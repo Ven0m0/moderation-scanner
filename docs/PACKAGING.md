@@ -68,7 +68,6 @@ After installation (`/usr/`):
 └── share/
     ├── doc/account-scanner/
     │   ├── README.md
-    │   ├── CHANGELOG.md
     │   └── credentials.template
     └── licenses/account-scanner/
         └── LICENSE
@@ -106,7 +105,6 @@ python -m account_scanner username --mode reddit
 - `python` (≥3.11)
 - `python-httpx`
 - `python-orjson`
-- `python-asyncpraw`
 - `python-aiofiles`
 
 ### Optional (optdepends)
@@ -152,14 +150,14 @@ python -m account_scanner username --mode reddit
    ```bash
    # Ensure PKGBUILD and .SRCINFO are up to date
    makepkg --printsrcinfo > .SRCINFO
-   
+
    # Create git repository
    git clone ssh://aur@aur.archlinux.org/account-scanner.git aur-account-scanner
    cd aur-account-scanner
-   
+
    # Copy packaging files
    cp ../PKGBUILD ../.SRCINFO .
-   
+
    # Commit and push
    git add PKGBUILD .SRCINFO
    git commit -m "Initial commit: account-scanner 1.2.3"
@@ -173,10 +171,10 @@ python -m account_scanner username --mode reddit
    # Bump version
    pkgver=1.2.4
    pkgrel=1
-   
+
    # Update checksums
    updpkgsums
-   
+
    # Regenerate .SRCINFO
    makepkg --printsrcinfo > .SRCINFO
    ```
