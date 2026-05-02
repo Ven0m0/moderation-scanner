@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 MAX_SCAN_LENGTH: Final = 50
 SCAN_TIMEOUT: Final = 300
 SCANS_DIR: Final = Path("./scans")
+_USERNAME_SANITIZE_RE: Final = re.compile(r"[^\w\-]")
 
 GLOBAL_LIMITER = RateLimiter(rate_per_min=60.0)
 
@@ -225,7 +226,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
         if isinstance(ctx, commands.Context) and ctx.interaction:
             self.update_cooldown(user_id)
 
-        safe_username = re.sub(r"[^\w\-]", "_", username)
+        safe_username = _USERNAME_SANITIZE_RE.sub("_", username)
         clean_username = discord.utils.escape_markdown(
             discord.utils.escape_mentions(username)
         ).replace("<@", "<\\@")
