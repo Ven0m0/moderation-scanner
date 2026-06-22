@@ -14,7 +14,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install Tesseract OCR system dependencies
         run: |
           export DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes
