@@ -24,9 +24,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "ruff~=0.15.17",
+  "ruff~=0.15.19",
   "mypy~=2.1.0",
-  "pytest~=9.1.0",
+  "pytest~=9.1.1",
   "pytest-asyncio~=1.4.0",
   "pip-audit>=2.10.1",  # Security vulnerability scanning
   "types-aiofiles>=25.1.0.20260518",  # Type stubs for mypy
