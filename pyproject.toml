@@ -24,8 +24,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "ruff~=0.15.19",
-  "mypy>=2.2,<2.4",
+  "ruff~=0.15.22",
+  "mypy>=2.3.0,<2.4",
   "pytest~=9.1.1",
   "pytest-asyncio~=1.4.0",
   "pip-audit>=2.10.1",  # Security vulnerability scanning
