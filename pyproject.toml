@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
   "httpx[http2]~=0.28.1",
   "orjson>=3.11.5,<4.0.0",
-  "uvloop~=0.22.1; platform_system != 'Windows'",
+  "uvloop>=0.22.1,<0.24.0; platform_system != 'Windows'",
   "aiofiles~=25.1",
   "discord.py>=2.0.0,<3.0.0",
 ]
@@ -25,7 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "ruff>=0.16.2,<0.17.0",
-  "mypy>=2.3.0,<2.4",
+  "mypy>=2.3.0,<2.5",
   "pytest~=9.1.1",
   "pytest-asyncio~=1.4.0",
   "pip-audit>=2.10.1",  # Security vulnerability scanning
