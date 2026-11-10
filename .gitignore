@@ -69,3 +69,4 @@ Thumbs.db
 
 .pem
 secrets/
+.codegraph/
