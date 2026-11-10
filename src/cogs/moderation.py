@@ -339,6 +339,6 @@ class ModerationCog(commands.Cog, name="Moderation"):
             await ctx.send("❌ Scan failed. Check bot logs for details.")
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: ModerationBot) -> None:
     """Load the moderation cog."""
     await bot.add_cog(ModerationCog(bot))

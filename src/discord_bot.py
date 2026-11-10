@@ -12,7 +12,6 @@ import sys
 from typing import Any
 
 import discord
-import uvloop
 from discord.ext import commands
 
 from account_scanner import close_http_client
@@ -207,6 +206,8 @@ def main() -> None:
         sys.exit(1)
 
     try:
+        import uvloop  # ty: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
+
         uvloop.install()
         log.info("uvloop installed for better async performance")
     except (ImportError, RuntimeError) as exc:

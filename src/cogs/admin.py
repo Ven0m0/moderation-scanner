@@ -81,6 +81,6 @@ class AdminCog(commands.Cog, name="Admin"):
             log.error("Failed to sync commands: %s", exc, exc_info=True)
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: ModerationBot) -> None:
     """Load the admin cog."""
-    await bot.add_cog(AdminCog(bot))  # type: ignore[arg-type]
+    await bot.add_cog(AdminCog(bot))

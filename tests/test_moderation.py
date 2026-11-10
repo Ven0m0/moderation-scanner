@@ -1,5 +1,6 @@
 """Tests for the moderation cog."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
@@ -23,7 +24,7 @@ async def test_send_detailed_results_escapes_mentions():
     ctx.followup.send = AsyncMock()
 
     username = "<@123456789> @everyone"
-    results = {
+    results: Any = {
         "sherlock": [{"platform": "TestPlatform", "url": "http://test.com/user"}],
         "reddit": [],
     }
@@ -57,7 +58,7 @@ async def test_send_detailed_results_escapes_mentions_reddit():
     ctx.followup.send = AsyncMock()
 
     username = "<@123456789> @everyone"
-    results = {
+    results: Any = {
         "reddit": [
             {
                 "content": "Test content",

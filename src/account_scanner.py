@@ -35,7 +35,6 @@ from typing import Final, Literal, TypedDict
 import aiofiles
 import httpx
 import orjson
-import uvloop
 
 # --- PEP 695 type aliases ---
 type ScanMode = Literal["sherlock", "reddit", "both"]
@@ -574,7 +573,7 @@ class RedditScanner:
         for (kind, sub, text, ts), item_scores in zip(items, scores, strict=True):
             if any(s >= self.config.threshold for s in item_scores.values()):
                 dt = datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
-                entry: RedditFlaggedItem = {
+                entry: RedditFlaggedItem = {  # pyright: ignore[reportAssignmentType]
                     "timestamp": dt,
                     "type": kind,
                     "subreddit": str(sub),
@@ -738,7 +737,10 @@ async def main_async() -> None:
 
 def main() -> None:
     """Main entry point for CLI execution."""
-    uvloop.install()
+    if sys.platform != "win32":  # uvloop has no Windows build
+        import uvloop  # pyright: ignore[reportMissingImports]  # absent on Windows
+
+        uvloop.install()
     try:
         asyncio.run(main_async())
     except KeyboardInterrupt:

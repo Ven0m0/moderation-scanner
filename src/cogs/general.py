@@ -91,6 +91,6 @@ class GeneralCog(commands.Cog, name="General"):
             await ctx.send(embed=embed)
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: ModerationBot) -> None:
     """Load the general cog."""
-    await bot.add_cog(GeneralCog(bot))  # type: ignore[arg-type]
+    await bot.add_cog(GeneralCog(bot))

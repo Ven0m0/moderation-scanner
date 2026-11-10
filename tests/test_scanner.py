@@ -1,6 +1,7 @@
 """Tests for account_scanner core logic."""
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -246,7 +247,7 @@ async def test_reddit_fetch_items_uses_reddit_oauth_api(monkeypatch: pytest.Monk
             json={"access_token": "token"},
         )
 
-    async def fake_get(self: httpx.AsyncClient, url: str, **kwargs: object) -> httpx.Response:
+    async def fake_get(self: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
         requests.append(("GET", url))
         assert kwargs["params"]["sort"] == "new"
         assert kwargs["params"]["raw_json"] == 1
